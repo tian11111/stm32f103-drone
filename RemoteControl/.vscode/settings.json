@@ -1,0 +1,17 @@
+{
+    // 遥控器工程专用配置（仅在本文件夹作为工作区根时生效）
+    // STM32 VS Code 扩展把工具链装在 bundle 里，但没注入 PATH，这里手动补上。
+    "cmake.environment": {
+        "PATH": "C:/Users/Neco/AppData/Local/stm32cube/bundles/ninja/1.13.1+st.1/bin;C:/Users/Neco/AppData/Local/stm32cube/bundles/gnu-tools-for-stm32/14.3.1+st.2/bin;${env:PATH}"
+    },
+    "cmake.configureSettings": {
+        "CMAKE_MAKE_PROGRAM": "C:/Users/Neco/AppData/Local/stm32cube/bundles/ninja/1.13.1+st.1/bin/ninja.exe"
+    },
+    "cmake.cmakePath": "cube-cmake",
+    "cmake.configureArgs": [
+        "-DCMAKE_COMMAND=cube-cmake"
+    ],
+    "cmake.preferredGenerators": [
+        "Ninja"
+    ]
+}

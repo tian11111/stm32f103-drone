@@ -1,0 +1,5 @@
+{
+    // 本目录只是两个独立工程的容器，不在这里配置 CMake。
+    // 打开方式见 hal.code-workspace（多根工作区），或直接 Open Folder 到
+    // RemoteControl / FlightController 各自目录。
+}

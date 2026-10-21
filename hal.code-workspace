@@ -1,0 +1,24 @@
+{
+    "folders": [
+        {
+            "name": "RemoteControl (遥控器)",
+            "path": "RemoteControl"
+        },
+        {
+            "name": "FlightController (飞控)",
+            "path": "FlightController"
+        }
+    ],
+    "settings": {
+        // 工具链路径（两个工程共用，各自 .vscode/settings.json 里还有一份）
+        "cmake.environment": {
+            "PATH": "C:/Users/Neco/AppData/Local/stm32cube/bundles/ninja/1.13.1+st.1/bin;C:/Users/Neco/AppData/Local/stm32cube/bundles/gnu-tools-for-stm32/14.3.1+st.2/bin;${env:PATH}"
+        },
+        "stm32cube-ide-clangd.path": "cube",
+        "stm32cube-ide-clangd.arguments": [
+            "starm-clangd",
+            "--query-driver=${env:CUBE_BUNDLE_PATH}/gnu-tools-for-stm32/14.3.1+st.2/bin/arm-none-eabi-gcc*",
+            "--query-driver=${env:CUBE_BUNDLE_PATH}/gnu-tools-for-stm32/14.3.1+st.2/bin/arm-none-eabi-g++*"
+        ]
+    }
+}

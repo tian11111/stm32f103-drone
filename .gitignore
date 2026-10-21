@@ -1,0 +1,37 @@
+# ---------- 构建产物 ----------
+build/
+**/build/
+*.elf
+*.bin
+*.hex
+*.map
+*.o
+*.d
+*.su
+
+# ---------- Keil / MDK 产物 ----------
+Objects/
+Listings/
+DebugConfig/
+*.uvguix.*
+*.uvoptx
+*.bak
+*.dep
+
+# ---------- CubeMX 临时文件 ----------
+mx.scratch
+.mxproject
+
+# ---------- 编辑器 / 系统 ----------
+.vscode/ipch/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# ---------- AI 工具脚手架（本地开发配置，不入库） ----------
+.agents/
+.zcode/
+.trellis/
+.dsh/
+AGENTS.md
