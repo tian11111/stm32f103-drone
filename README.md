@@ -62,6 +62,7 @@ hal/
 
 - [STM32CubeIDE for Visual Studio Code](https://marketplace.visualstudio.com/items?itemName=STMicroelectronics.stm32-vscode-extension) 扩展（自带 ninja 与 arm-none-eabi-gcc）
 - 或自行安装 `cmake`、`ninja`、`arm-none-eabi-gcc` 并加入 PATH
+- **OpenOCD**（烧录/调试用）：本项目使用全局安装，路径 `D:/dev/tools/openocd/xpack-openocd-0.12.0-7`
 
 ### 命令行
 
@@ -78,6 +79,21 @@ cmake --build build/Debug
 ### VS Code
 
 打开 `hal.code-workspace`，在左侧选择对应工程根目录后构建。
+
+### 烧录与调试
+
+`RemoteControl/.vscode/launch.json` 提供两套配置，`tasks.json` 提供对应的纯烧录任务：
+
+| 配置 | 探针 | 接口 |
+| --- | --- | --- |
+| DAPLink 烧录并调试 (10MHz) | CMSIS-DAP（VID `0xc251` / PID `0xf001`） | SWD |
+| ST-Link 烧录并调试 (10MHz) | ST-Link | SWD |
+
+按 `F5` 选择配置即可烧录并调试；`Ctrl+Shift+P` → `Tasks: Run Task` → `烧录 (DAPLink 10MHz)` 只烧不调试。
+
+> **SWD 速率**：10 MHz 对 F103 偏高。若出现 `No ACK`、校验失败或连接不稳，把 `openocd.cfg` / `openocd-stlink.cfg` 里的 `adapter speed` 依次降到 4000 / 2000 / 1000。
+>
+> **注意**：`adapter speed` 必须写在 `source [find target/stm32f1x.cfg]` **之后**，因为该 target 配置内部自带 `adapter speed 1000`，写在前面会被覆盖。
 
 ## 通信协议
 

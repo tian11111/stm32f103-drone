@@ -24,9 +24,9 @@
         {
             "label": "烧录 (DAPLink 10MHz)",
             "type": "process",
-            "command": "${workspaceFolder}/.tools/openocd/xpack-openocd-0.12.0-7/bin/openocd.exe",
+            "command": "D:/dev/tools/openocd/xpack-openocd-0.12.0-7/bin/openocd.exe",
             "args": [
-                "-s", "${workspaceFolder}/.tools/openocd/xpack-openocd-0.12.0-7/openocd/scripts",
+                "-s", "D:/dev/tools/openocd/xpack-openocd-0.12.0-7/openocd/scripts",
                 "-f", "interface/cmsis-dap.cfg",
                 "-c", "cmsis-dap vid_pid 0xc251 0xf001",
                 "-c", "transport select swd",
@@ -41,9 +41,9 @@
         {
             "label": "烧录 (ST-Link 10MHz)",
             "type": "process",
-            "command": "${workspaceFolder}/.tools/openocd/xpack-openocd-0.12.0-7/bin/openocd.exe",
+            "command": "D:/dev/tools/openocd/xpack-openocd-0.12.0-7/bin/openocd.exe",
             "args": [
-                "-s", "${workspaceFolder}/.tools/openocd/xpack-openocd-0.12.0-7/openocd/scripts",
+                "-s", "D:/dev/tools/openocd/xpack-openocd-0.12.0-7/openocd/scripts",
                 "-f", "interface/stlink.cfg",
                 "-c", "transport select swd",
                 "-f", "target/stm32f1x.cfg",
