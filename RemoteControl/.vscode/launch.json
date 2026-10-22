@@ -1,0 +1,47 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "DAPLink 烧录并调试 (10MHz)",
+            "type": "cortex-debug",
+            "request": "launch",
+            "servertype": "openocd",
+            "cwd": "${workspaceFolder}",
+            "executable": "${workspaceFolder}/build/Debug/RemoteControl.elf",
+            "device": "STM32F103C8",
+            "gdbPath": "C:/Users/Neco/AppData/Local/stm32cube/bundles/gnu-gdb-for-stm32/14.3.1+st.2/bin/arm-none-eabi-gdb.exe",
+            "toolchainPath": "C:/Users/Neco/AppData/Local/stm32cube/bundles/gnu-tools-for-stm32/14.3.1+st.2/bin",
+            "openOCDPath": "${workspaceFolder}/.tools/openocd/xpack-openocd-0.12.0-7/bin/openocd.exe",
+            "searchDir": [
+                "${workspaceFolder}/.tools/openocd/xpack-openocd-0.12.0-7/openocd/scripts"
+            ],
+            "configFiles": [
+                "${workspaceFolder}/openocd.cfg"
+            ],
+            "svdFile": "C:/keilmdk/ARM/PACK/Keil/STM32F1xx_DFP/2.2.0/SVD/STM32F103xx.svd",
+            "runToEntryPoint": "main",
+            "preLaunchTask": "Build RemoteControl"
+        },
+        {
+            "name": "ST-Link 烧录并调试 (10MHz)",
+            "type": "cortex-debug",
+            "request": "launch",
+            "servertype": "openocd",
+            "cwd": "${workspaceFolder}",
+            "executable": "${workspaceFolder}/build/Debug/RemoteControl.elf",
+            "device": "STM32F103C8",
+            "gdbPath": "C:/Users/Neco/AppData/Local/stm32cube/bundles/gnu-gdb-for-stm32/14.3.1+st.2/bin/arm-none-eabi-gdb.exe",
+            "toolchainPath": "C:/Users/Neco/AppData/Local/stm32cube/bundles/gnu-tools-for-stm32/14.3.1+st.2/bin",
+            "openOCDPath": "${workspaceFolder}/.tools/openocd/xpack-openocd-0.12.0-7/bin/openocd.exe",
+            "searchDir": [
+                "${workspaceFolder}/.tools/openocd/xpack-openocd-0.12.0-7/openocd/scripts"
+            ],
+            "configFiles": [
+                "${workspaceFolder}/openocd-stlink.cfg"
+            ],
+            "svdFile": "C:/keilmdk/ARM/PACK/Keil/STM32F1xx_DFP/2.2.0/SVD/STM32F103xx.svd",
+            "runToEntryPoint": "main",
+            "preLaunchTask": "Build RemoteControl"
+        }
+    ]
+}

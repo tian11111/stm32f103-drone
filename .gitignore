@@ -22,6 +22,9 @@ DebugConfig/
 mx.scratch
 .mxproject
 
+# ---------- 本地工具链（OpenOCD 等二进制，不入库） ----------
+.tools/
+
 # ---------- 编辑器 / 系统 ----------
 .vscode/ipch/
 *.swp

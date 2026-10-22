@@ -1,0 +1,58 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build RemoteControl",
+            "type": "shell",
+            "command": "cmake --build --preset Debug",
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "shell": {
+                    "executable": "C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe",
+                    "args": ["-NoProfile", "-Command"]
+                },
+                "env": {
+                    "PATH": "C:/Users/Neco/AppData/Local/stm32cube/bundles/ninja/1.13.1+st.1/bin;C:/Users/Neco/AppData/Local/stm32cube/bundles/gnu-tools-for-stm32/14.3.1+st.2/bin;${env:PATH}"
+                }
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$gcc"]
+        },
+        {
+            "label": "烧录 (DAPLink 10MHz)",
+            "type": "process",
+            "command": "${workspaceFolder}/.tools/openocd/xpack-openocd-0.12.0-7/bin/openocd.exe",
+            "args": [
+                "-s", "${workspaceFolder}/.tools/openocd/xpack-openocd-0.12.0-7/openocd/scripts",
+                "-f", "interface/cmsis-dap.cfg",
+                "-c", "cmsis-dap vid_pid 0xc251 0xf001",
+                "-c", "transport select swd",
+                "-f", "target/stm32f1x.cfg",
+                "-c", "adapter speed 10000",
+                "-c", "reset_config none",
+                "-c", "program {${workspaceFolder}/build/Debug/RemoteControl.elf} verify reset exit"
+            ],
+            "dependsOn": "Build RemoteControl",
+            "problemMatcher": []
+        },
+        {
+            "label": "烧录 (ST-Link 10MHz)",
+            "type": "process",
+            "command": "${workspaceFolder}/.tools/openocd/xpack-openocd-0.12.0-7/bin/openocd.exe",
+            "args": [
+                "-s", "${workspaceFolder}/.tools/openocd/xpack-openocd-0.12.0-7/openocd/scripts",
+                "-f", "interface/stlink.cfg",
+                "-c", "transport select swd",
+                "-f", "target/stm32f1x.cfg",
+                "-c", "adapter speed 10000",
+                "-c", "reset_config none",
+                "-c", "program {${workspaceFolder}/build/Debug/RemoteControl.elf} verify reset exit"
+            ],
+            "dependsOn": "Build RemoteControl",
+            "problemMatcher": []
+        }
+    ]
+}
