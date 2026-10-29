@@ -44,12 +44,17 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
-    # Add user sources here
+    # 业务驱动（硬件访问层已改为 HAL：SPI2 / I2C1 / ADC / GPIO）
+    Bsp/nrf24l01.c
+    Bsp/key.c
+    Bsp/ad.c
+    Bsp/oled.c
+    Bsp/oled_data.c
 )
 
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
-    # Add user defined include paths
+    Bsp
 )
 
 # Add project symbols (macros)

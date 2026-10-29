@@ -35,7 +35,9 @@ extern "C" {
 extern ADC_HandleTypeDef hadc1;
 
 /* USER CODE BEGIN Private defines */
-
+/*ADC1 的 DMA 句柄在 adc.c 中定义，Bsp/ad.c 需要引用它来关闭 DMA 传输中断。
+  放在 USER CODE 区，避免 CubeMX 重新生成时被删掉*/
+extern DMA_HandleTypeDef hdma_adc1;
 /* USER CODE END Private defines */
 
 void MX_ADC1_Init(void);
