@@ -26,7 +26,15 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "motor.h"
+#include "mpu6050.h"
+#include "inv_mpu.h"
+#include "oled.h"
+#include "PowerDetection.h"
+#include "BlueSerial.h"
+#include "fly_control.h"
+#include "Delay.h"
+#include "NRF24L01.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -98,6 +106,25 @@ int main(void)
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
 
+  Delay_Init();              /* 先启用 DWT，供设备初始化及收发使用 */
+  MPU6050_Init();            /* 复位并等待传感器启动后，再核验身份 */
+  uint8_t mpu_who_am_i = 0;
+  if (mpu6050_read(MPU_ADDR, MPU_DEVICE_ID_REG, 1, &mpu_who_am_i) != 0 ||
+      mpu_who_am_i != 0x68)
+  {
+    Error_Handler();
+  }
+  volatile uint8_t mpu_dmp_status = MPU6050_DMP_Init();
+  if (mpu_dmp_status != 0)
+  {
+    Error_Handler();
+  }
+  Motor_Init();              /* HAL_TIM_PWM_Start 四路 + CCR 清零 */
+  NRF24L01_Init();           /* 软件 SPI 配寄存器，进 RX 模式 */
+  GetBattery_Init();         /* ADC 校准 */
+  OLED_Init();               /* 硬件 I2C1 */
+  BlueSerial_Init();         /* HAL_UART_Receive_IT 启动接收 */
+  HAL_TIM_Base_Start_IT(&htim1);  
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -105,7 +132,42 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
+    /* 6ms：收遥控器数据 */
+    if (Receive_Flag != 0)
+    {
+        Data_Receive();
+        Receive_Flag = 0;
+    }
 
+    /* 20ms：数据处理 + 蓝牙调参 */
+    if (Process_Flag != 0)
+    {
+        Data_Proc();
+        BlueSerial_Proc();
+        Process_Flag = 0;
+    }
+
+    /* 50ms：OLED 显示 + 波形回传 */
+    if (Display_Flag != 0)
+    {
+        Data_Display();
+        BlueSerial_SendWave();
+        Display_Flag = 0;
+    }
+
+    /* 4ms：读 DMP 姿态 */
+    if (Attitude_Flag != 0)
+    {
+        Attitude_Data_Proc();
+        Attitude_Flag = 0;
+    }
+
+    /* 10ms：电池检测 */
+    if (Power_Flag != 0)
+    {
+        GetCur_Power();
+        Power_Flag = 0;
+    }
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -158,6 +220,17 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    if (htim->Instance == TIM1)
+    {
+        /* 每 1ms 执行一次  */
+        Control_Tick();          /* 里面数到 3ms 就调 Fly_task()（PID+混控+输出） */
+        Task_Counters_Tick();    /* 6/20/50/4/10ms 计数器递减，到 0 置标志 */
+        LED_Tick();              /* 状态 LED 状态机 */
+        Link_Watchdog_Tick();    /* 失联计数 connect_time++ / 500ms 上锁 */
+    }
+}
 
 /* USER CODE END 4 */
 
