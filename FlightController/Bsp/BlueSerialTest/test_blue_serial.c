@@ -72,10 +72,56 @@ static void feed(const char *text)
     }
 }
 
+static void test_pid_commands(void)
+{
+    struct mapping { const char *name; float *value; } mappings[] = {
+        {"AngleKp", &pitch_angle_balance_Kp}, {"AngleKi", &pitch_angle_balance_Ki},
+        {"AngleKd", &pitch_angle_balance_Kd}, {"SpeedKp", &pitch_gyro_balance_Kp},
+        {"SpeedKi", &pitch_gyro_balance_Ki}, {"SpeedKd", &pitch_gyro_balance_Kd},
+        {"TurnKp", &yaw_angle_balance_Kp}, {"TurnKi", &yaw_angle_balance_Ki},
+        {"TurnKd", &yaw_angle_balance_Kd}, {"Offset", &fly_pitch_zero},
+        {"RollAKp", &roll_angle_balance_Kp}, {"RollAKi", &roll_angle_balance_Ki},
+        {"RollAKd", &roll_angle_balance_Kd}, {"RollGKp", &roll_gyro_balance_Kp},
+        {"RollGKi", &roll_gyro_balance_Ki}, {"RollGKd", &roll_gyro_balance_Kd},
+        {"YawGKp", &yaw_gyro_balance_Kp}, {"YawGKi", &yaw_gyro_balance_Ki},
+        {"YawGKd", &yaw_gyro_balance_Kd}
+    };
+    const size_t count = sizeof mappings / sizeof mappings[0];
+    char command[80];
+    for (size_t i = 0; i < count; i++) *mappings[i].value = -100.0f;
+    for (size_t i = 0; i < count; i++) {
+        snprintf(command, sizeof command, "[slider,%s,%f]", mappings[i].name, (double)(i + 1));
+        feed(command); BlueSerial_Proc();
+        for (size_t j = 0; j < count; j++)
+            assert(*mappings[j].value == (j <= i ? (float)(j + 1) : -100.0f));
+    }
+    feed("slider,Offset,-1.250000\n"); BlueSerial_Proc();
+    assert(fly_pitch_zero == -1.25f);
+    feed("[slider,AngleKi,0.000003]"); BlueSerial_Proc();
+    assert(pitch_angle_balance_Ki == 0.000003f);
+    feed("slider,AngleKi,3e-5\n"); BlueSerial_Proc();
+    assert(pitch_angle_balance_Ki == 3e-5f);
+    const char *invalid[] = {"nan", "inf", "-Infinity", "1e999", "garbage", "1xyz", "", "\\x31"};
+    for (size_t i = 0; i < sizeof invalid / sizeof invalid[0]; i++) {
+        snprintf(command, sizeof command, "[slider,AngleKp,%s]", invalid[i]);
+        feed(command); BlueSerial_Proc();
+        assert(pitch_angle_balance_Kp == 1.0f);
+    }
+    feed("[SETP:2.85,I:0.003,D:0.048]"); BlueSerial_Proc();
+    assert(pitch_angle_balance_Kp == 2.85f && pitch_angle_balance_Ki == 0.003f && pitch_angle_balance_Kd == 0.048f);
+    feed("SETI:0.125\n"); BlueSerial_Proc();
+    assert(pitch_angle_balance_Kp == 2.85f && pitch_angle_balance_Ki == 0.125f && pitch_angle_balance_Kd == 0.048f);
+    feed("SETP:nan,I:bad,D:0.4oops\n"); BlueSerial_Proc();
+    assert(pitch_angle_balance_Kp == 2.85f && pitch_angle_balance_Ki == 0.125f && pitch_angle_balance_Kd == 0.048f);
+    feed("SETP:bad,I:0.25,D:inf\n"); BlueSerial_Proc();
+    assert(pitch_angle_balance_Kp == 2.85f && pitch_angle_balance_Ki == 0.25f && pitch_angle_balance_Kd == 0.048f);
+}
+
 int main(void)
 {
     BlueSerial_Init();
     assert(receive_count == 1);
+    test_pid_commands();
     feed("[slider,AngleKp,2.50]");
     assert(BlueSerial_RxFlag && strcmp(BlueSerial_RxPacket, "slider,AngleKp,2.50") == 0);
     BlueSerial_Proc();
@@ -152,14 +198,15 @@ int main(void)
     output_length = 0;
     fly_pitch_zero = 1; getpitch_SET = 2; Pitch = 3; Pitch_Angle_out = 4; Battery_average = 4.2f;
     BlueSerial_SendWave();
-    assert(tx_count == 1 && tx_length == strlen("50,3.00,3.00,4.00,4.20\r\n"));
-    assert(memcmp(tx_data, "50,3.00,3.00,4.00,4.20\r\n", tx_length) == 0);
+    assert(tx_count == 1 && tx_length == strlen("pid:50,3.00,3.00,4.00,4.20\r\n"));
+    assert(memcmp(tx_data, "pid:50,3.00,3.00,4.00,4.20\r\n", tx_length) == 0);
     Pitch = 9;
     BlueSerial_SendWave();
-    assert(tx_count == 1 && memcmp(tx_data, "50,3.00,3.00,4.00,4.20\r\n", tx_length) == 0);
+    assert(tx_count == 1 && memcmp(tx_data, "pid:50,3.00,3.00,4.00,4.20\r\n", tx_length) == 0);
     huart1.gState = HAL_UART_STATE_READY;
     BlueSerial_SendWave();
-    assert(tx_count == 2 && memcmp(tx_data, "150,3.00,9.00,4.00,4.20\r\n", tx_length) == 0);
+    assert(tx_count == 2 && tx_length == strlen("pid:150,3.00,9.00,4.00,4.20\r\n"));
+    assert(memcmp(tx_data, "pid:150,3.00,9.00,4.00,4.20\r\n", tx_length) == 0);
     huart1.gState = HAL_UART_STATE_READY;
     fly_pitch_zero = Pitch = Pitch_Angle_out = Battery_average = 1e38f;
     BlueSerial_SendWave();

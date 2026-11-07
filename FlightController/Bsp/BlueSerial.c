@@ -3,6 +3,8 @@
 #include <stdarg.h>
 #include <string.h>
 #include <stdlib.h>
+#include <ctype.h>
+#include <math.h>
 #include "BlueSerial.h"
 #include "Variable.h"
 
@@ -148,6 +150,17 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 	}
 }
 
+static int BlueSerial_ParseFloat(const char *text, float *value)
+{
+	char *end;
+	float parsed = strtof(text, &end);
+	if (end == text || !isfinite(parsed)) return 0;
+	while (isspace((unsigned char)*end)) end++;
+	if (*end != '\0' && *end != ',') return 0;
+	*value = parsed;
+	return 1;
+}
+
 /* Online PID tuning, called every 20 ms from Data_Proc().
    Values are written straight into the PID globals and take effect at once. */
 void BlueSerial_Proc(void)
@@ -160,9 +173,10 @@ void BlueSerial_Proc(void)
 			char *p = strstr(BlueSerial_RxPacket, "P:");
 			char *in = strstr(BlueSerial_RxPacket, "I:");
 			char *d = strstr(BlueSerial_RxPacket, "D:");
-			if (p) pitch_angle_balance_Kp = atof(p + 2);
-			if (in) pitch_angle_balance_Ki = atof(in + 2);
-			if (d) pitch_angle_balance_Kd = atof(d + 2);
+			float v;
+			if (p && BlueSerial_ParseFloat(p + 2, &v)) pitch_angle_balance_Kp = v;
+			if (in && BlueSerial_ParseFloat(in + 2, &v)) pitch_angle_balance_Ki = v;
+			if (d && BlueSerial_ParseFloat(d + 2, &v)) pitch_angle_balance_Kd = v;
 		}
 		else
 		{
@@ -174,9 +188,9 @@ void BlueSerial_Proc(void)
 				{
 					char *Name = strtok(NULL, ",");
 					char *Value = strtok(NULL, ",");
-					if (Name != NULL && Value != NULL)
+					float v;
+					if (Name != NULL && Value != NULL && BlueSerial_ParseFloat(Value, &v))
 					{
-						float v = atof(Value);
 						if (strcmp(Name, "AngleKp") == 0) pitch_angle_balance_Kp = v;
 						else if (strcmp(Name, "AngleKi") == 0) pitch_angle_balance_Ki = v;
 						else if (strcmp(Name, "AngleKd") == 0) pitch_angle_balance_Kd = v;
@@ -207,7 +221,7 @@ void BlueSerial_Proc(void)
 }
 
 /* Waveform observer, called once from the 50 ms display slot in main.c.
-   CSV output: ms,pitch_target,pitch_actual,angle_loop_out,battery_volts */
+   FireWater output: pid:ms,pitch_target,pitch_actual,angle_loop_out,battery_volts */
 void BlueSerial_SendWave(void)
 {
 	static uint32_t wave_ms = 0;
@@ -215,7 +229,7 @@ void BlueSerial_SendWave(void)
 	int length;
 	wave_ms += 50;	/* Advance even when a busy transmitter drops this sample. */
 	if (huart1.gState != HAL_UART_STATE_READY) return;
-	length = snprintf(wave_buffer, sizeof wave_buffer, "%lu,%.2f,%.2f,%.2f,%.2f\r\n",
+	length = snprintf(wave_buffer, sizeof wave_buffer, "pid:%lu,%.2f,%.2f,%.2f,%.2f\r\n",
 	                  (unsigned long)wave_ms, fly_pitch_zero + getpitch_SET,
 	                  Pitch, Pitch_Angle_out, Battery_average);
 	if (length > 0 && (size_t)length < sizeof wave_buffer)
