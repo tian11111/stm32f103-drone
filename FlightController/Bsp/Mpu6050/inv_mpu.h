@@ -129,6 +129,7 @@ int mpu_register_tap_cb(void (*func)(unsigned char, unsigned char));
 /*********************/
 void get_ms(unsigned long *time);	
 u8  MPU6050_DMP_Init(void);
+u8 MPU6050_DMP_Get_Sample(float *pitch,float *roll,float *yaw,float *gx,float *gy,float *gz);
 u8 MPU6050_DMP_Get_Data(float *pitch,float *roll,float *yaw);/*,float *_gx,float *_gy,float *_gz*///5MS  200HZ调用一下，给 DEFAULT_MPU_HZ 频率保持一致
 /*********************/
 /********************/

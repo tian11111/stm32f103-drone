@@ -18,7 +18,7 @@
   ***************************************************************************************
   */
 
-#include "stm32f10x.h"
+#include "i2c.h"
 #include "OLED.h"
 #include <string.h>
 #include <math.h>
@@ -81,168 +81,97 @@
   */
 uint8_t OLED_DisplayBuf[8][128];
 
+/* Only the main loop snapshots or starts transfers; IRQ callbacks advance state. */
+enum { OLED_IDLE, OLED_COMMAND_READY, OLED_COMMAND_WAIT, OLED_DATA_READY, OLED_DATA_WAIT };
+static volatile uint8_t oled_state;
+static volatile uint8_t oled_recover;
+static uint8_t oled_page;
+static uint8_t oled_frame[8][129];
+static uint8_t oled_command[4] = {0x00, 0xB0, 0x00, 0x10};
+
+void OLED_UpdateAsync(void)
+{
+    uint8_t page;
+    if (oled_state != OLED_IDLE || oled_recover) return;
+    for (page = 0; page < 8; ++page)
+    {
+        oled_frame[page][0] = 0x40;
+        memcpy(&oled_frame[page][1], OLED_DisplayBuf[page], 128);
+    }
+    oled_page = 0;
+    oled_state = OLED_COMMAND_READY;
+}
+
+void OLED_Task(void)
+{
+    uint8_t state = oled_state;
+    uint8_t *data;
+    uint16_t length;
+    if (oled_recover)
+    {
+        /* HAL init releases the SWRST left set by the F1 BERR workaround.
+           It only restores peripheral registers; it does not wait on the bus. */
+        if (hi2c1.State == HAL_I2C_STATE_READY && HAL_I2C_Init(&hi2c1) == HAL_OK)
+            oled_recover = 0;
+        return;
+    }
+    if (state != OLED_COMMAND_READY && state != OLED_DATA_READY) return;
+    if (hi2c1.State != HAL_I2C_STATE_READY ||
+        __HAL_I2C_GET_FLAG(&hi2c1, I2C_FLAG_BUSY) != RESET) return;
+    if (state == OLED_COMMAND_READY)
+    {
+        oled_command[1] = 0xB0 | oled_page;
+        data = oled_command;
+        length = sizeof oled_command;
+        oled_state = OLED_COMMAND_WAIT;
+    }
+    else
+    {
+        data = oled_frame[oled_page];
+        length = sizeof oled_frame[0];
+        oled_state = OLED_DATA_WAIT;
+    }
+    if (HAL_I2C_Master_Transmit_IT(&hi2c1, 0x78, data, length) != HAL_OK)
+    {
+        /* A failed start drops this frame; a later request can try again. */
+        oled_state = OLED_IDLE;
+    }
+}
+
+void HAL_I2C_MasterTxCpltCallback(I2C_HandleTypeDef *hi2c)
+{
+    if (hi2c != &hi2c1) return;
+    if (oled_state == OLED_COMMAND_WAIT) oled_state = OLED_DATA_READY;
+    else if (oled_state == OLED_DATA_WAIT)
+    {
+        ++oled_page;
+        oled_state = oled_page == 8 ? OLED_IDLE : OLED_COMMAND_READY;
+    }
+}
+
+void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c)
+{
+    if (hi2c == &hi2c1)
+    {
+        oled_recover |= (hi2c->ErrorCode & HAL_I2C_ERROR_BERR) != 0;
+        oled_state = OLED_IDLE;
+    }
+}
+
 /*********************全局变量*/
 
 
-/*引脚配置*********************/
-
-/**
-  * 函    数：OLED写SCL高低电平
-  * 参    数：要写入SCL的电平值，范围：0/1
-  * 返 回 值：无
-  * 说    明：当上层函数需要写SCL时，此函数会被调用
-  *           用户需要根据参数传入的值，将SCL置为高电平或者低电平
-  *           当参数传入0时，置SCL为低电平，当参数传入1时，置SCL为高电平
-  */
-void OLED_W_SCL(uint8_t BitValue)
-{
-	/*根据BitValue的值，将SCL置高电平或者低电平*/
-	GPIO_WriteBit(GPIOB, GPIO_Pin_8, (BitAction)BitValue);
-	
-	/*如果单片机速度过快，可在此添加适量延时，以避免超出I2C通信的最大速度*/
-	//...
-}
-
-/**
-  * 函    数：OLED写SDA高低电平
-  * 参    数：要写入SDA的电平值，范围：0/1
-  * 返 回 值：无
-  * 说    明：当上层函数需要写SDA时，此函数会被调用
-  *           用户需要根据参数传入的值，将SDA置为高电平或者低电平
-  *           当参数传入0时，置SDA为低电平，当参数传入1时，置SDA为高电平
-  */
-void OLED_W_SDA(uint8_t BitValue)
-{
-	/*根据BitValue的值，将SDA置高电平或者低电平*/
-	GPIO_WriteBit(GPIOB, GPIO_Pin_9, (BitAction)BitValue);
-	
-	/*如果单片机速度过快，可在此添加适量延时，以避免超出I2C通信的最大速度*/
-	//...
-}
-
-/**
-  * 函    数：OLED引脚初始化
-  * 参    数：无
-  * 返 回 值：无
-  * 说    明：当上层函数需要初始化时，此函数会被调用
-  *           用户需要将SCL和SDA引脚初始化为开漏模式，并释放引脚
-  */
-void OLED_GPIO_Init(void)
-{
-	uint32_t i, j;
-	
-	/*在初始化前，加入适量延时，待OLED供电稳定*/
-	for (i = 0; i < 1000; i ++)
-	{
-		for (j = 0; j < 1000; j ++);
-	}
-	
-	/*将SCL和SDA引脚初始化为开漏模式*/
-    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
-	
-	GPIO_InitTypeDef GPIO_InitStructure;
- 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_OD;
-	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_8;
- 	GPIO_Init(GPIOB, &GPIO_InitStructure);
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_9;
- 	GPIO_Init(GPIOB, &GPIO_InitStructure);
-	
-	/*释放SCL和SDA*/
-	OLED_W_SCL(1);
-	OLED_W_SDA(1);
-}
-
-/*********************引脚配置*/
-
-
-/*通信协议*********************/
-
-/**
-  * 函    数：I2C起始
-  * 参    数：无
-  * 返 回 值：无
-  */
-void OLED_I2C_Start(void)
-{
-	OLED_W_SDA(1);		//释放SDA，确保SDA为高电平
-	OLED_W_SCL(1);		//释放SCL，确保SCL为高电平
-	OLED_W_SDA(0);		//在SCL高电平期间，拉低SDA，产生起始信号
-	OLED_W_SCL(0);		//起始后把SCL也拉低，即为了占用总线，也为了方便总线时序的拼接
-}
-
-/**
-  * 函    数：I2C终止
-  * 参    数：无
-  * 返 回 值：无
-  */
-void OLED_I2C_Stop(void)
-{
-	OLED_W_SDA(0);		//拉低SDA，确保SDA为低电平
-	OLED_W_SCL(1);		//释放SCL，使SCL呈现高电平
-	OLED_W_SDA(1);		//在SCL高电平期间，释放SDA，产生终止信号
-}
-
-/**
-  * 函    数：I2C发送一个字节
-  * 参    数：Byte 要发送的一个字节数据，范围：0x00~0xFF
-  * 返 回 值：无
-  */
-void OLED_I2C_SendByte(uint8_t Byte)
-{
-	uint8_t i;
-	
-	/*循环8次，主机依次发送数据的每一位*/
-	for (i = 0; i < 8; i++)
-	{
-		/*使用掩码的方式取出Byte的指定一位数据并写入到SDA线*/
-		/*两个!的作用是，让所有非零的值变为1*/
-		OLED_W_SDA(!!(Byte & (0x80 >> i)));
-		OLED_W_SCL(1);	//释放SCL，从机在SCL高电平期间读取SDA
-		OLED_W_SCL(0);	//拉低SCL，主机开始发送下一位数据
-	}
-	
-	OLED_W_SCL(1);		//额外的一个时钟，不处理应答信号
-	OLED_W_SCL(0);
-}
-
-/**
-  * 函    数：OLED写命令
-  * 参    数：Command 要写入的命令值，范围：0x00~0xFF
-  * 返 回 值：无
-  */
+/* Hardware I2C communication */
 void OLED_WriteCommand(uint8_t Command)
 {
-	OLED_I2C_Start();				//I2C起始
-	OLED_I2C_SendByte(0x78);		//发送OLED的I2C从机地址
-	OLED_I2C_SendByte(0x00);		//控制字节，给0x00，表示即将写命令
-	OLED_I2C_SendByte(Command);		//写入指定的命令
-	OLED_I2C_Stop();				//I2C终止
+	(void)HAL_I2C_Mem_Write(&hi2c1, 0x78, 0x00, I2C_MEMADD_SIZE_8BIT, &Command, 1, 20);
 }
 
-/**
-  * 函    数：OLED写数据
-  * 参    数：Data 要写入数据的起始地址
-  * 参    数：Count 要写入数据的数量
-  * 返 回 值：无
-  */
 void OLED_WriteData(uint8_t *Data, uint8_t Count)
 {
-	uint8_t i;
-	
-	OLED_I2C_Start();				//I2C起始
-	OLED_I2C_SendByte(0x78);		//发送OLED的I2C从机地址
-	OLED_I2C_SendByte(0x40);		//控制字节，给0x40，表示即将写数据
-	/*循环Count次，进行连续的数据写入*/
-	for (i = 0; i < Count; i ++)
-	{
-		OLED_I2C_SendByte(Data[i]);	//依次发送Data的每一个数据
-	}
-	OLED_I2C_Stop();				//I2C终止
+	if (Count == 0) return;
+	(void)HAL_I2C_Mem_Write(&hi2c1, 0x78, 0x40, I2C_MEMADD_SIZE_8BIT, Data, Count, 20);
 }
-
-/*********************通信协议*/
-
 
 /*硬件配置*********************/
 
@@ -254,7 +183,7 @@ void OLED_WriteData(uint8_t *Data, uint8_t Count)
   */
 void OLED_Init(void)
 {
-	OLED_GPIO_Init();			//先调用底层的端口初始化
+	HAL_Delay(100);
 	
 	/*写入一系列的命令，对OLED进行初始化配置*/
 	OLED_WriteCommand(0xAE);	//设置显示开启/关闭，0xAE关闭，0xAF开启

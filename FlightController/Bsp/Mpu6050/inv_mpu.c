@@ -2912,40 +2912,39 @@ u8 MPU6050_DMP_Init(void)
 //yaw:航向角   精度:0.1°   范围:-180.0°<---> +180.0°
 //返回值:0,正常
 //    其他,失败
-u8 MPU6050_DMP_Get_Data(float *pitch,float *roll,float *yaw/*,float *_gx,float *_gy,float *_gz*/)//（5MS  200HZ调用一下，给 DEFAULT_MPU_HZ 频率保持一致，或者int中断引脚读取）
-{                              //  （此处在主函数中一直调用，在中断函数里更新 频率未变）
-	float q0=1.0f,q1=0.0f,q2=0.0f,q3=0.0f;
-	unsigned long sensor_timestamp;
-	short gyro[3], accel[3], sensors;
-	unsigned char more;
-	long quat[4]; 
-	if(dmp_read_fifo(gyro, accel, quat, &sensor_timestamp, &sensors,&more))return 1;	 
-	/* Gyro and accel data are written to the FIFO by the DMP in chip frame and hardware units.
-	 * This behavior is convenient because it keeps the gyro and accel outputs of dmp_read_fifo and mpu_read_fifo consistent.
-	**/
-	/*if (sensors & INV_XYZ_GYRO )
-	send_packet(PACKET_TYPE_GYRO, gyro);
-	if (sensors & INV_XYZ_ACCEL)
-	send_packet(PACKET_TYPE_ACCEL, accel); */
-	/* Unlike gyro and accel, quaternions are written to the FIFO in the body frame, q30.
-	 * The orientation is set by the scalar passed to dmp_set_orientation during initialization. 
-	**/
-//	if(sensors & INV_XYZ_GYRO)
-//	{
-//		*_gx = (float)gyro[0] / 16.4f; // X轴滤波角速度（°/s）
-//		*_gy = (float)gyro[1] / 16.4f; // Y轴滤波角速度（°/s）
-//		*_gz = (float)gyro[2] / 16.4f; // Z轴滤波角速度（°/s）
-//	}
-	if(sensors&INV_WXYZ_QUAT) 
-	{
-		q0 = quat[0] / q30;	//q30格式转换为浮点数
-		q1 = quat[1] / q30;
-		q2 = quat[2] / q30;
-		q3 = quat[3] / q30; 
-		//计算得到俯仰角/横滚角/航向角
-		*pitch = asin(-2 * q1 * q3 + 2 * q0* q2)* 57.3;	// pitch
-		*roll  = atan2(2 * q2 * q3 + 2 * q0 * q1, -2 * q1 * q1 - 2 * q2* q2 + 1)* 57.3;	// roll
-		*yaw   = atan2(2*(q1*q2 + q0*q3),q0*q0+q1*q1-q2*q2-q3*q3) * 57.3;	//yaw
-	}else return 2;
-	return 0;
+u8 MPU6050_DMP_Get_Sample(float *pitch,float *roll,float *yaw,float *gx,float *gy,float *gz)
+{
+    float q0, q1, q2, q3, norm, p, r, y;
+    unsigned long sensor_timestamp;
+    short gyro[3], accel[3], sensors;
+    unsigned char more = 0, count;
+    long quat[4];
+
+    for (count = 0; count < 4; ++count)
+    {
+        if (dmp_read_fifo(gyro, accel, quat, &sensor_timestamp, &sensors, &more)) return 1;
+        if ((sensors & (INV_WXYZ_QUAT | INV_XYZ_GYRO)) != (INV_WXYZ_QUAT | INV_XYZ_GYRO)) return 2;
+        if (!more) break;
+    }
+    /* Do not timestamp a sample while the FIFO still contains newer packets. */
+    if (more) return 3;
+    q0 = quat[0] / q30; q1 = quat[1] / q30;
+    q2 = quat[2] / q30; q3 = quat[3] / q30;
+    norm = q0*q0 + q1*q1 + q2*q2 + q3*q3;
+    if (!isfinite(norm) || norm < 0.9f || norm > 1.1f) return 2;
+    p = asin(-2 * q1 * q3 + 2 * q0 * q2) * 57.3;
+    r = atan2(2 * q2 * q3 + 2 * q0 * q1, -2 * q1 * q1 - 2 * q2 * q2 + 1) * 57.3;
+    y = atan2(2 * (q1 * q2 + q0 * q3), q0 * q0 + q1 * q1 - q2 * q2 - q3 * q3) * 57.3;
+    if (!isfinite(p) || !isfinite(r) || !isfinite(y)) return 2;
+    *pitch = p; *roll = r; *yaw = y;
+    *gx = (float)gyro[0] / 16.4f;
+    *gy = (float)gyro[1] / 16.4f;
+    *gz = (float)gyro[2] / 16.4f;
+    return 0;
+}
+
+u8 MPU6050_DMP_Get_Data(float *pitch,float *roll,float *yaw)
+{
+    float gx, gy, gz;
+    return MPU6050_DMP_Get_Sample(pitch, roll, yaw, &gx, &gy, &gz);
 }

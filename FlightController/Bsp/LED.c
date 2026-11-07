@@ -1,28 +1,23 @@
-#include "stm32f10x.h"                  // Device header
-#include "Variable.h"
-#include "PWM.h"
+#include "main.h"
+#include "LED.h"
 
+static uint16_t LED_Time_Light=0;
+static uint16_t LED_Time_Dark=0;
+static uint8_t LED_Light_Dark_Bit=0;
 
 void LED_Init(void)
 {
-	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA,ENABLE);
-	GPIO_InitTypeDef GPIO_InitStructure;
-	GPIO_InitStructure.GPIO_Mode=GPIO_Mode_Out_PP;
-	GPIO_InitStructure.GPIO_Pin=GPIO_Pin_7;
-	GPIO_InitStructure.GPIO_Speed=GPIO_Speed_50MHz;
-	GPIO_Init(GPIOA,&GPIO_InitStructure);
-	GPIO_ResetBits(GPIOA,GPIO_Pin_7);
+	LED_Time_Light=0;
+	LED_Time_Dark=0;
+	LED_Light_Dark_Bit=0;
+	HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
 }
 
 void LED_Light(uint8_t LED_bit)
 {
-	if(LED_bit) GPIO_SetBits(GPIOA,GPIO_Pin_7);
-	else GPIO_ResetBits(GPIOA,GPIO_Pin_7);
+	HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, LED_bit ? GPIO_PIN_SET : GPIO_PIN_RESET);
 }
 
-	static uint16_t LED_Time_Light=0;
-	static uint16_t LED_Time_Dark=0;
-	static uint8_t LED_Light_Dark_Bit=0;//1ÎªÁÁ£¬0Îª°µ
 void LED_Time(uint16_t LED_Time_number)
 {
 

@@ -1,8 +1,9 @@
-#include "stm32f10x.h"                  // Device header
+#include "Data_Proc.h"
+#include "main.h"
+#include <math.h>
 #include "NRF24L01.h"
 #include "Variable.h"
-#include "MPU6050.h"
-#include "MPU6050.h"
+#include "mpu6050.h"
 #include "inv_mpu.h"
 #include "OLED.h"
 #include "PowerDetection.h"
@@ -12,6 +13,24 @@
 
 //角度转弧度，参与PID计算
 #define DEG_TO_RAD 0.0174532925f
+
+#define ATTITUDE_TIMEOUT_MS 50U
+static volatile uint32_t attitude_last_success;
+static volatile uint8_t attitude_valid;
+/* Require release of an unlock key held across an IMU fault. */
+static volatile uint8_t unlock_needs_release;
+
+uint8_t Attitude_IsFresh(void)
+{
+    uint32_t primask = __get_PRIMASK();
+    uint32_t last;
+    uint8_t valid;
+    __disable_irq();
+    last = attitude_last_success;
+    valid = attitude_valid;
+    __set_PRIMASK(primask);
+    return valid && (uint32_t)(HAL_GetTick() - last) <= ATTITUDE_TIMEOUT_MS;
+}
 
 
 /*经过观察后得出*/
@@ -394,6 +413,18 @@ int16_t Yaw_Gyro_Balance(float PID_Angle_Out,float Gyro) //设置的角度与角速度
 
 void Fly_task(void)
 {
+    if (!Attitude_IsFresh())
+    {
+        unlock_needs_release = 1;
+        Lock = 1;
+        Oil_Get = Oil_Set = 0;
+        PWM_OUT1 = PWM_OUT2 = PWM_OUT3 = PWM_OUT4 = 0;
+        PID_Pitch_Angle_Integral = PID_Roll_Angle_Integral = PID_Yaw_Angle_Integral = 0;
+        PID_Pitch_Gyro_Integral = PID_Roll_Gyro_Integral = PID_Yaw_Gyro_Integral = 0;
+        PID_Pitch_Gyro_err_last = PID_Roll_Gyro_err_last = PID_Yaw_Gyro_err_last = 0;
+        Motor_Control();
+        return;
+    }
 	//俯仰外环输出
 	 Pitch_Angle_out=Pitch_Angle_Balance(Pitch,gy);   
 	 Roll_Angle_out=Roll_Angle_Balance(Roll,gx);     
@@ -480,7 +511,6 @@ void Data_Proc(void)
 			  if(fly_yaw_zero_bit!=fly_yaw_zero_bit_old)
 				{
 					/*重置航向零点*/
-					MPU6050_DMP_Get_Data(&Pitch,&Roll,&Yaw);
 					fly_yaw_zero=Yaw;
 					fly_yaw_zero_bit_old=fly_yaw_zero_bit;
 				}
@@ -570,8 +600,19 @@ void Data_Proc(void)
 void Attitude_Data_Proc(void)
 {
 	//获得姿态角度与角速度
-	 MPU6050_DMP_Get_Data(&Pitch,&Roll,&Yaw);
-	 MPU_Get_Gyroscope(&gx,&gy,&gz);
+	 float p, r, y, xrate, yrate, zrate;
+     if (MPU6050_DMP_Get_Sample(&p, &r, &y, &xrate, &yrate, &zrate) == 0 &&
+         isfinite(p) && isfinite(r) && isfinite(y) &&
+         isfinite(xrate) && isfinite(yrate) && isfinite(zrate))
+     {
+         uint32_t primask = __get_PRIMASK();
+         __disable_irq();
+         Pitch = p; Roll = r; Yaw = y;
+         gx = xrate; gy = yrate; gz = zrate;
+         attitude_last_success = HAL_GetTick();
+         attitude_valid = 1;
+         __set_PRIMASK(primask);
+     }
 }
 
 /*---数据显示---*/
@@ -597,7 +638,7 @@ void Data_Display(void)
 	OLED_Printf(88,38,OLED_6X8,"R:%04.2f",Roll);
 	OLED_Printf(46,48,OLED_6X8,"Z:%04.2f",gz);
 	OLED_Printf(88,48,OLED_6X8,"Y:%04.2f",Yaw);
-	OLED_Update();
+	OLED_UpdateAsync();
 }
 
 /*---数据接收---*/
@@ -647,6 +688,7 @@ void Data_Receive(void)
 			lh=-lh;
 #endif
 
+			if(key!=8) unlock_needs_release=0;
 			if(key==7)
 			{
 				Lock=1;
@@ -656,11 +698,17 @@ void Data_Receive(void)
 			}
 			else if((key==8) && (Oil_Get<=5))
 			{
-				/* Capture the current heading and clear throttle before unlocking. */
-				Oil_Set=0;
-				fly_yaw_zero=Yaw;
-				getyaw=100.0f;
-				Lock=0;
+                uint32_t primask = __get_PRIMASK();
+                __disable_irq();
+                if (!unlock_needs_release && Attitude_IsFresh())
+                {
+                    /* Capture heading before an explicit, fresh-sample unlock. */
+                    Oil_Set=0;
+                    fly_yaw_zero=Yaw;
+                    getyaw=100.0f;
+                    Lock=0;
+                }
+                __set_PRIMASK(primask);
 			}
 			else if((Lock==0) && (Oil_Get>10))
 			{

@@ -31,6 +31,9 @@ message("Build type: " ${CMAKE_BUILD_TYPE})
 # Enable CMake support for ASM and C languages
 enable_language(C ASM)
 
+# Optimize across application and HAL objects to fit the STM32F103C8 Flash.
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+
 # Create an executable object type
 add_executable(${CMAKE_PROJECT_NAME})
 
@@ -45,6 +48,11 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Bsp/BlueSerial.c
+    Bsp/Data_Proc.c
+    Bsp/Motor.c
+    Bsp/LED.c
+    Bsp/OLED.c
+    Bsp/OLED_Data.c
     Bsp/MySPI.c
     Bsp/NRF24L01.c
     Bsp/Delay.c

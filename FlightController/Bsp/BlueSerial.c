@@ -211,8 +211,15 @@ void BlueSerial_Proc(void)
 void BlueSerial_SendWave(void)
 {
 	static uint32_t wave_ms = 0;
-	float pitch_target;
-	wave_ms += 50;	/* one call per 50 ms -> timestamp in milliseconds */
-	pitch_target = fly_pitch_zero + getpitch_SET;	/* same expression as Pitch_Angle_Balance */
-	BlueSerial_Printf("%lu,%.2f,%.2f,%.2f,%.2f\r\n", (unsigned long)wave_ms, pitch_target, Pitch, Pitch_Angle_out, Battery_average);
+	static char wave_buffer[100];
+	int length;
+	wave_ms += 50;	/* Advance even when a busy transmitter drops this sample. */
+	if (huart1.gState != HAL_UART_STATE_READY) return;
+	length = snprintf(wave_buffer, sizeof wave_buffer, "%lu,%.2f,%.2f,%.2f,%.2f\r\n",
+	                  (unsigned long)wave_ms, fly_pitch_zero + getpitch_SET,
+	                  Pitch, Pitch_Angle_out, Battery_average);
+	if (length > 0 && (size_t)length < sizeof wave_buffer)
+	{
+		(void)HAL_UART_Transmit_IT(&huart1, (uint8_t *)wave_buffer, (uint16_t)length);
+	}
 }

@@ -2,6 +2,7 @@
 #include "tim.h"
 #include "Motor.h"
 #include "Variable.h"
+#include "Data_Proc.h"
 
 uint8_t Motor_time = 4;
 
@@ -24,7 +25,7 @@ void Motor_Init(void)
 
 void Motor_Control(void)
 {
-    if (Lock == 0 && connect_protect == 0)
+    if (Lock == 0 && connect_protect == 0 && Attitude_IsFresh())
     {
         __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, PWM_OUT1);
         __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, PWM_OUT2);

@@ -15,14 +15,14 @@ extern uint8_t Receive_Data[32];
 extern uint8_t TxorRxVal;
 
 /*定时器变量*/  
-extern uint16_t Receive_Slow_time;
+extern volatile uint16_t Receive_Slow_time;
 extern uint16_t Send_Slow_time;
-extern uint16_t Proc_Slow_time;
+extern volatile uint16_t Proc_Slow_time;
 extern uint16_t Motor_Slow_time;
-extern uint16_t Show_Slow_time;
-extern uint16_t Task_Slow_time;
-extern uint8_t Attitude_Proc_time;
-extern uint16_t PowerDete_Slow_time;
+extern volatile uint16_t Show_Slow_time;
+extern volatile uint16_t Task_Slow_time;
+extern volatile uint8_t Attitude_Proc_time;
+extern volatile uint16_t PowerDete_Slow_time;
 extern uint16_t LED_Slow_time;
 
 /*获取陀螺仪*/

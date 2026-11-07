@@ -8,14 +8,14 @@ uint8_t Receive_Data[32]={0};
 uint8_t TxorRxVal;
 
 /*定时器变量，单位为1ms*/  
-uint16_t Receive_Slow_time=1;
+volatile uint16_t Receive_Slow_time=1;
 uint16_t Send_Slow_time=1;
-uint16_t Proc_Slow_time=1;
+volatile uint16_t Proc_Slow_time=1;
 uint16_t Motor_Slow_time=1;
-uint16_t Show_Slow_time=1;
-uint16_t Task_Slow_time=1;
-uint8_t Attitude_Proc_time=1;
-uint16_t PowerDete_Slow_time=1;
+volatile uint16_t Show_Slow_time=1;
+volatile uint16_t Task_Slow_time=1;
+volatile uint8_t Attitude_Proc_time=1;
+volatile uint16_t PowerDete_Slow_time=1;
 uint16_t LED_Slow_time=1;
 
 /*获取陀螺仪*/

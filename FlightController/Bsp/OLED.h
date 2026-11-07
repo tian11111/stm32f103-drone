@@ -25,6 +25,9 @@ void OLED_Init(void);
 
 /*更新函数*/
 void OLED_Update(void);
+/* Call both from the main loop; active refreshes discard new requests. */
+void OLED_UpdateAsync(void);
+void OLED_Task(void);
 void OLED_UpdateArea(int16_t X, int16_t Y, uint8_t Width, uint8_t Height);
 
 /*显存控制函数*/
