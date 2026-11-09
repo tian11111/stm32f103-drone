@@ -6,6 +6,7 @@
 #include <ctype.h>
 #include <math.h>
 #include "BlueSerial.h"
+#include "FixedFormat.h"
 #include "Variable.h"
 
 char BlueSerial_RxPacket[100];
@@ -220,19 +221,69 @@ void BlueSerial_Proc(void)
 	}
 }
 
+static int BlueSerial_Append(char *buffer, size_t capacity, size_t *length,
+                             const char *text)
+{
+	if (buffer == NULL || length == NULL || text == NULL ||
+	    *length >= capacity) return 0;
+	size_t text_length = strlen(text);
+	if (text_length >= capacity - *length) return 0;
+	memcpy(buffer + *length, text, text_length);
+	*length += text_length;
+	buffer[*length] = '\0';
+	return 1;
+}
+
+static int BlueSerial_AppendU32(char *buffer, size_t capacity, size_t *length,
+                                uint32_t value)
+{
+	char digits[10];
+	size_t count = 0;
+	if (buffer == NULL || length == NULL || *length >= capacity) return 0;
+	do {
+		digits[count++] = (char)('0' + value % 10U);
+		value /= 10U;
+	} while (value != 0U);
+	if (count >= capacity - *length) return 0;
+	while (count != 0U) buffer[(*length)++] = digits[--count];
+	buffer[*length] = '\0';
+	return 1;
+}
+
+static int BlueSerial_AppendFixed(char *buffer, size_t capacity, size_t *length,
+                                  float value)
+{
+	char field[24];
+	if (!FixedFormat_Float(field, sizeof field, value, 2U)) return 0;
+	return BlueSerial_Append(buffer, capacity, length, field);
+}
+
 /* Waveform observer, called once from the 50 ms display slot in main.c.
    FireWater output: pid:ms,pitch_target,pitch_actual,angle_loop_out,battery_volts */
 void BlueSerial_SendWave(void)
 {
 	static uint32_t wave_ms = 0;
 	static char wave_buffer[100];
-	int length;
+	size_t length = 0;
 	wave_ms += 50;	/* Advance even when a busy transmitter drops this sample. */
 	if (huart1.gState != HAL_UART_STATE_READY) return;
-	length = snprintf(wave_buffer, sizeof wave_buffer, "pid:%lu,%.2f,%.2f,%.2f,%.2f\r\n",
-	                  (unsigned long)wave_ms, fly_pitch_zero + getpitch_SET,
-	                  Pitch, Pitch_Angle_out, Battery_average);
-	if (length > 0 && (size_t)length < sizeof wave_buffer)
+	wave_buffer[0] = '\0';
+	if (!BlueSerial_Append(wave_buffer, sizeof wave_buffer, &length, "pid:") ||
+	    !BlueSerial_AppendU32(wave_buffer, sizeof wave_buffer, &length, wave_ms) ||
+	    !BlueSerial_Append(wave_buffer, sizeof wave_buffer, &length, ",") ||
+	    !BlueSerial_AppendFixed(wave_buffer, sizeof wave_buffer, &length,
+	                            fly_pitch_zero + getpitch_SET) ||
+	    !BlueSerial_Append(wave_buffer, sizeof wave_buffer, &length, ",") ||
+	    !BlueSerial_AppendFixed(wave_buffer, sizeof wave_buffer, &length, Pitch) ||
+	    !BlueSerial_Append(wave_buffer, sizeof wave_buffer, &length, ",") ||
+	    !BlueSerial_AppendFixed(wave_buffer, sizeof wave_buffer, &length, Pitch_Angle_out) ||
+	    !BlueSerial_Append(wave_buffer, sizeof wave_buffer, &length, ",") ||
+	    !BlueSerial_AppendFixed(wave_buffer, sizeof wave_buffer, &length, Battery_average) ||
+	    !BlueSerial_Append(wave_buffer, sizeof wave_buffer, &length, "\r\n"))
+	{
+		return;
+	}
+	if (length != 0U)
 	{
 		(void)HAL_UART_Transmit_IT(&huart1, (uint8_t *)wave_buffer, (uint16_t)length);
 	}

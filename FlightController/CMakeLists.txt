@@ -34,6 +34,13 @@ enable_language(C ASM)
 # Optimize across application and HAL objects to fit the STM32F103C8 Flash.
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 
+set(FLIGHTCONTROLLER_ATTITUDE_SOURCE "MEKF" CACHE STRING "Attitude source: MEKF or DMP")
+set_property(CACHE FLIGHTCONTROLLER_ATTITUDE_SOURCE PROPERTY STRINGS MEKF DMP)
+if(NOT FLIGHTCONTROLLER_ATTITUDE_SOURCE STREQUAL "MEKF" AND
+   NOT FLIGHTCONTROLLER_ATTITUDE_SOURCE STREQUAL "DMP")
+    message(FATAL_ERROR "FLIGHTCONTROLLER_ATTITUDE_SOURCE must be MEKF or DMP")
+endif()
+
 # Create an executable object type
 add_executable(${CMAKE_PROJECT_NAME})
 
@@ -48,6 +55,7 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Bsp/BlueSerial.c
+    Bsp/FixedFormat.c
     Bsp/Data_Proc.c
     Bsp/Motor.c
     Bsp/LED.c
@@ -58,15 +66,28 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Bsp/Delay.c
     Bsp/PowerDetection.c
     Bsp/Variable.c
-    Bsp/Mpu6050/mpu6050.c
-    Bsp/Mpu6050/inv_mpu.c
-    Bsp/Mpu6050/inv_mpu_dmp_motion_driver.c
 )
+
+if(FLIGHTCONTROLLER_ATTITUDE_SOURCE STREQUAL "MEKF")
+    target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE ATTITUDE_SOURCE_MEKF)
+    target_sources(${CMAKE_PROJECT_NAME} PRIVATE
+        Bsp/Attitude/attitude_mekf.c Bsp/Imu/f103_port.c
+        Bsp/Imu/src/imu_math.c Bsp/Imu/src/imu_mpu6050.c
+        Bsp/Imu/src/imu_calibration.c Bsp/Imu/src/imu_stationary.c
+        Bsp/Imu/src/imu_mekf.c Bsp/Imu/src/imu_system.c)
+else()
+    target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE ATTITUDE_SOURCE_DMP)
+    target_sources(${CMAKE_PROJECT_NAME} PRIVATE Bsp/Mpu6050/mpu6050.c
+        Bsp/Mpu6050/inv_mpu.c Bsp/Mpu6050/inv_mpu_dmp_motion_driver.c)
+endif()
 
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     Bsp
     Bsp/Mpu6050
+    Bsp/Attitude
+    Bsp/Imu
+    Bsp/Imu/include
 )
 
 # Add project symbols (macros)
@@ -77,7 +98,8 @@ target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
 # Remove wrong libob.a library dependency when using cpp files
 list(REMOVE_ITEM CMAKE_C_IMPLICIT_LINK_LIBRARIES ob)
 
-target_link_options(${CMAKE_PROJECT_NAME} PRIVATE -u _printf_float)
+# Production display and FireWater paths use FixedFormat for decimal fields.
+# Keep float printf disabled so newlib's formatter is not pulled into the F103 image.
 
 # Add linked libraries
 target_link_libraries(${CMAKE_PROJECT_NAME}

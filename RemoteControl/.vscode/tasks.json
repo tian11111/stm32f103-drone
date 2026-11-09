@@ -22,24 +22,19 @@
             "problemMatcher": ["$gcc"]
         },
         {
-            "label": "烧录 (DAPLink 10MHz)",
+            "label": "遥控器烧录 (DAPLink 5MHz)",
             "type": "process",
             "command": "D:/dev/tools/openocd/xpack-openocd-0.12.0-7/bin/openocd.exe",
             "args": [
                 "-s", "D:/dev/tools/openocd/xpack-openocd-0.12.0-7/openocd/scripts",
-                "-f", "interface/cmsis-dap.cfg",
-                "-c", "cmsis-dap vid_pid 0xc251 0xf001",
-                "-c", "transport select swd",
-                "-f", "target/stm32f1x.cfg",
-                "-c", "adapter speed 10000",
-                "-c", "reset_config none",
+                "-f", "${workspaceFolder}/openocd.cfg",
                 "-c", "program {${workspaceFolder}/build/Debug/RemoteControl.elf} verify reset exit"
             ],
             "dependsOn": "Build RemoteControl",
             "problemMatcher": []
         },
         {
-            "label": "烧录 (ST-Link 10MHz)",
+            "label": "遥控器烧录 (ST-Link 10MHz)",
             "type": "process",
             "command": "D:/dev/tools/openocd/xpack-openocd-0.12.0-7/bin/openocd.exe",
             "args": [

@@ -46,6 +46,7 @@ void OLED_ShowBinNum(int16_t X, int16_t Y, uint32_t Number, uint8_t Length, uint
 void OLED_ShowFloatNum(int16_t X, int16_t Y, double Number, uint8_t IntLength, uint8_t FraLength, uint8_t FontSize);
 void OLED_ShowChinese(int16_t X, int16_t Y, char *Chinese);
 void OLED_ShowImage(int16_t X, int16_t Y, uint8_t Width, uint8_t Height, const uint8_t *Image);
+/* F103 固件未启用浮点 printf；小数字段先用 FixedFormat 格式化。 */
 void OLED_Printf(int16_t X, int16_t Y, uint8_t FontSize, char *format, ...);
 
 /*绘图函数*/

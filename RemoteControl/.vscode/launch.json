@@ -2,7 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "DAPLink 烧录并调试 (10MHz)",
+            "name": "遥控器 DAPLink 烧录并调试 (5MHz)",
             "type": "cortex-debug",
             "request": "launch",
             "servertype": "openocd",
@@ -23,7 +23,7 @@
             "preLaunchTask": "Build RemoteControl"
         },
         {
-            "name": "ST-Link 烧录并调试 (10MHz)",
+            "name": "遥控器 ST-Link 烧录并调试 (10MHz)",
             "type": "cortex-debug",
             "request": "launch",
             "servertype": "openocd",

@@ -29,6 +29,10 @@
 #include "Motor.h"
 #include "mpu6050.h"
 #include "inv_mpu.h"
+#ifdef ATTITUDE_SOURCE_MEKF
+#include "attitude_source.h"
+#include "f103_port.h"
+#endif
 #include "OLED.h"
 #include "LED.h"
 #include "PowerDetection.h"
@@ -109,6 +113,9 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   Delay_Init();              /* 先启用 DWT，供设备初始化及收发使用 */
+#ifdef ATTITUDE_SOURCE_MEKF
+  AttitudeSource_Init();
+#else
   MPU6050_Init();            /* 复位并等待传感器启动后，再核验身份 */
   uint8_t mpu_who_am_i = 0;
   if (mpu6050_read(MPU_ADDR, MPU_DEVICE_ID_REG, 1, &mpu_who_am_i) != 0 ||
@@ -121,6 +128,7 @@ int main(void)
   {
     Error_Handler();
   }
+#endif
   LED_Init();
   Motor_Init();              /* HAL_TIM_PWM_Start 四路 + CCR 清零 */
   NRF24L01_Init();           /* 软件 SPI 配寄存器，进 RX 模式 */
@@ -226,7 +234,12 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
         if (Receive_Slow_time != SlowDown && ++Receive_Slow_time > 6) Receive_Slow_time = SlowDown;
         if (Proc_Slow_time != SlowDown && ++Proc_Slow_time > 20) Proc_Slow_time = SlowDown;
         if (Show_Slow_time != SlowDown && ++Show_Slow_time > 50) Show_Slow_time = SlowDown;
+#ifdef ATTITUDE_SOURCE_MEKF
+        /* 与 MEKF 前台服务周期一致，避免 4 ms 槽与 5 ms 门限叠加成 8 ms。 */
+        if (Attitude_Proc_time != SlowDown && ++Attitude_Proc_time > IMU_SERVICE_PERIOD_MS) Attitude_Proc_time = SlowDown;
+#else
         if (Attitude_Proc_time != SlowDown && ++Attitude_Proc_time > 4) Attitude_Proc_time = SlowDown;
+#endif
         /* After reset to zero, > 3 invokes the flight task every 4 ms. */
         if (++Task_Slow_time > 3)
         {

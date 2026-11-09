@@ -6,10 +6,10 @@
 
 | 工程 | 软件状态 | 验证边界 |
 | --- | --- | --- |
-| [FlightController](FlightController/README.md) | HAL 驱动、双环 PID、混控、无线遥控/遥测、LED/OLED、电池检测及 VOFA 调参已接入 | Debug/Release 构建与相关主机回归通过；尚未完成实板联调和飞行验收 |
+| [FlightController](FlightController/README.md) | HAL 驱动、双环 PID、混控、无线遥控/遥测、LED/OLED、电池检测及 VOFA 调参已接入 | MEKF Debug/Release、DMP 回退 Release 构建与相关主机回归通过；尚未完成实板联调和飞行验收 |
 | RemoteControl | 四路摇杆、12 按键、无线发送、OLED 双页面和遥测接收已接入 | 本轮未修改或重新验证遥控器固件 |
 
-飞控当前构建记录（2026-11-07）：Debug 与 Release 均使用 Flash **60,220 / 65,536 字节**，静态 RAM **5,552 / 20,480 字节**。这不包含运行时栈水位验证，也不代表已经完成实板烧录或试飞。
+飞控本次 MEKF Debug/Release 构建按最高 Flash 加载地址计分别使用 **62,720 / 65,536 字节**和 **62,624 / 65,536 字节**，RAM 含栈堆预留共 **9,608 / 20,480 字节**。这些数字不代表运行时栈水位；无桨实机验证尚未完成，不能宣称可飞行。
 
 ## 项目结构
 
@@ -25,24 +25,26 @@ hal/
 
 两个工程**互相独立**，各自有 `.vscode/` 与构建目录，可分别编译、烧录。
 
-目前仅遥控器提供仓库内的 OpenOCD 烧录/调试任务；飞控已生成 ELF，但尚未提供专用的 `launch.json` 或烧录任务。
+两套工程均提供独立的 OpenOCD 烧录/调试任务。飞控任务名称带“飞控”，只使用 `FlightController.elf`；遥控器任务使用 `RemoteControl.elf`，两者不能混用。
 
 ## 系统组成
 
 | 设备 | 主控 | 说明 |
 | --- | --- | --- |
-| 飞控 | STM32F103C8T6 | MPU6050（DMP 姿态）+ NRF24L01 无线 + 电池检测 + OLED |
+| 飞控 | STM32F103C8T6 | MPU6050（默认 MEKF，支持 DMP 回退）+ NRF24L01 无线 + 电池检测 + OLED |
 | 遥控器 | STM32F103C8T6 | 双摇杆 ADC + 12 按键 + NRF24L01 + OLED |
 
 **无线链路**：两端 NRF24L01，地址 `11 22 33 44 55`，信道 2，2 Mbps，1 字节 CRC，自动应答，32 字节固定载荷。飞控使用软件 SPI，遥控器使用硬件 SPI2。
 
 ## 飞控功能
 
-主循环读取 MPU6050 DMP、处理遥控帧、蓝牙命令和电池采样；TIM1 提供 1ms 节拍，并在中断中每 **4ms** 执行三轴双环 PID 和四电机混控。OLED 刷新及串口波形使用中断异步发送。
+主循环以前台约 5ms 调度槽读取 MPU6050 并执行 MEKF，处理遥控帧、蓝牙命令和电池采样；DMP 回退使用约 4ms 调度槽。TIM1 提供 1ms 节拍，并在中断中每 **4ms** 执行三轴双环 PID 和四电机混控。OLED 刷新及串口波形使用中断异步发送。
+
+MEKF 上电初始化期间必须保持物理静止；初始化完成前保持锁机，检测到启动运动或姿态源故障后锁存，须静止后重新上电。恒速航向旋转可能被误判为零偏。详情见 [IMU 说明](FlightController/Bsp/Imu/README.md)。
 
 - 电机 PWM：TIM2 四路、20kHz，上电初值及锁机输出为 0。
 - 遥控失联保护：约 500ms 无有效控制帧后锁机。
-- 姿态保护：超过 50ms 无成功更新的完整姿态样本后锁机；恢复后需释放解锁键并重新解锁。
+- 姿态保护：超过 50ms 无成功更新的完整姿态样本后锁机；恢复后需释放解锁键并重新解锁，MEKF 锁存故障需重新上电。
 - VOFA：USART1、9600/8N1、FireWater 波形，支持三轴 PID 与俯仰零点共 19 个参数，修改在 RAM 中生效。
 
 完整飞控引脚表、与原版的差异及剩余事项见 [飞控 README](FlightController/README.md)；VOFA 控件绑定和命令模板见 [VOFA 使用说明](FlightController/VOFA使用说明.md)。
@@ -106,9 +108,13 @@ cmake --build --preset Release
 
 飞控 Debug 使用 `-Os -g3`，Release 使用 `-Os -g0`，两者启用 LTO 以适配 64KB Flash；优化可能影响调试时单步与局部变量显示。
 
+飞控默认选择 MEKF；需要 DMP 回退时配置 `cmake --preset Debug -DFLIGHTCONTROLLER_ATTITUDE_SOURCE=DMP`（Release 同理）。已有构建目录的缓存会保留选择，切换时须显式指定。
+
 ### VS Code
 
 打开 `hal.code-workspace`，在左侧选择对应工程根目录后构建。
+
+工作区设置指定 `C:/Program Files/CMake/bin/cmake.exe` 和 CMake 预设，但两个工程各自的 `.vscode/settings.json` 仍指定 `cube-cmake` 和 `CMAKE_COMMAND=cube-cmake`。若 CMake Tools 报找不到 `cube-cmake`，应检查输出中的实际配置；飞控配置和构建任务直接使用本机 CMake。配置设置 `stm32cube-ide-build-cmake.ignoreCubeProjectDiscovery=true` 以跳过该 ST 扩展的项目发现；工具链绝对路径换电脑时需要调整。
 
 ### 烧录与调试
 
@@ -116,12 +122,16 @@ cmake --build --preset Release
 
 | 配置 | 探针 | 接口 |
 | --- | --- | --- |
-| DAPLink 烧录并调试 (10MHz) | CMSIS-DAP（VID `0xc251` / PID `0xf001`） | SWD |
-| ST-Link 烧录并调试 (10MHz) | ST-Link | SWD |
+| 遥控器 DAPLink 烧录并调试 (5MHz) | CMSIS-DAP（VID `0xc251` / PID `0xf001`） | SWD |
+| 遥控器 ST-Link 烧录并调试 (10MHz) | ST-Link | SWD |
 
-先在 `RemoteControl` 完成一次 CMake 配置，再按 `F5` 选择配置烧录并调试；`Ctrl+Shift+P` → `Tasks: Run Task` → `烧录 (DAPLink 10MHz)` 只烧不调试。上述配置仅针对遥控器，并包含本机工具链绝对路径，换电脑需调整。
+先在 `RemoteControl` 完成一次 CMake 配置，再按 `F5` 选择配置烧录并调试；`Ctrl+Shift+P` → `Tasks: Run Task` → `遥控器烧录 (DAPLink 5MHz)` 只烧不调试。上述配置仅针对遥控器，并包含本机工具链绝对路径，换电脑需调整。
 
-> **SWD 速率**：10 MHz 对 F103 偏高。若出现 `No ACK`、校验失败或连接不稳，把 `openocd.cfg` / `openocd-stlink.cfg` 里的 `adapter speed` 依次降到 4000 / 2000 / 1000。
+飞控选择 `FlightController` 工程下的 **飞控 DAPLink 烧录并调试 (5MHz)** 或 **飞控 ST-Link 烧录并调试 (10MHz)**；纯烧录选择 **飞控烧录 (DAPLink 5MHz)** 或 **飞控烧录 (ST-Link 10MHz)**。飞控任务按顺序配置、构建后再下载 `FlightController.elf`，配置和构建任务使用本机 CMake/Ninja/ARM 工具链路径。
+
+如果飞控 OLED 显示 `Sig`、`LH/LV/RH/RV`，应先检查是否下载了遥控器固件；飞控原版布局是 `o:`、四路电机 PWM、电池、机械零点和姿态。点击通用 CMake“运行”按钮不等于执行上述烧录任务。
+
+> **SWD 速率**：DAPLink 默认 5MHz；ST-Link 仍为 10 MHz，不稳定时降低对应 cfg 的 `adapter speed`。若出现 `hid_write/WaitForSingleObject`，还需检查 USB 线、接口、探针和供电，降低 SWD 速度不能保证修复 USB 通信错误。
 >
 > **注意**：`adapter speed` 必须写在 `source [find target/stm32f1x.cfg]` **之后**，因为该 target 配置内部自带 `adapter speed 1000`，写在前面会被覆盖。
 

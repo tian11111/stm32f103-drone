@@ -1,0 +1,37 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "飞控 DAPLink 烧录并调试 (5MHz)",
+            "type": "cortex-debug",
+            "request": "launch",
+            "servertype": "openocd",
+            "cwd": "${workspaceFolder}",
+            "executable": "${workspaceFolder}/build/Debug/FlightController.elf",
+            "device": "STM32F103C8",
+            "gdbPath": "C:/Users/Neco/AppData/Local/stm32cube/bundles/gnu-gdb-for-stm32/14.3.1+st.2/bin/arm-none-eabi-gdb.exe",
+            "toolchainPath": "C:/Users/Neco/AppData/Local/stm32cube/bundles/gnu-tools-for-stm32/14.3.1+st.2/bin",
+            "openOCDPath": "D:/dev/tools/openocd/xpack-openocd-0.12.0-7/bin/openocd.exe",
+            "searchDir": ["D:/dev/tools/openocd/xpack-openocd-0.12.0-7/openocd/scripts"],
+            "configFiles": ["${workspaceFolder}/openocd.cfg"],
+            "runToEntryPoint": "main",
+            "preLaunchTask": "Build FlightController"
+        },
+        {
+            "name": "飞控 ST-Link 烧录并调试 (10MHz)",
+            "type": "cortex-debug",
+            "request": "launch",
+            "servertype": "openocd",
+            "cwd": "${workspaceFolder}",
+            "executable": "${workspaceFolder}/build/Debug/FlightController.elf",
+            "device": "STM32F103C8",
+            "gdbPath": "C:/Users/Neco/AppData/Local/stm32cube/bundles/gnu-gdb-for-stm32/14.3.1+st.2/bin/arm-none-eabi-gdb.exe",
+            "toolchainPath": "C:/Users/Neco/AppData/Local/stm32cube/bundles/gnu-tools-for-stm32/14.3.1+st.2/bin",
+            "openOCDPath": "D:/dev/tools/openocd/xpack-openocd-0.12.0-7/bin/openocd.exe",
+            "searchDir": ["D:/dev/tools/openocd/xpack-openocd-0.12.0-7/openocd/scripts"],
+            "configFiles": ["${workspaceFolder}/openocd-stlink.cfg"],
+            "runToEntryPoint": "main",
+            "preLaunchTask": "Build FlightController"
+        }
+    ]
+}

@@ -11,6 +11,7 @@ void BlueSerial_SendByte(uint8_t Byte);
 void BlueSerial_SendArray(uint8_t *Array, uint16_t Length);
 void BlueSerial_SendString(char *String);
 void BlueSerial_SendNumber(uint32_t Number, uint8_t Length);
+/* F103 固件未启用浮点 printf；小数字段先用 FixedFormat 格式化。 */
 void BlueSerial_Printf(char *format, ...);
 void BlueSerial_Proc(void);
 void BlueSerial_SendWave(void);

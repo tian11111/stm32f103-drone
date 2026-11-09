@@ -5,6 +5,8 @@
 #include "Variable.h"
 #include "mpu6050.h"
 #include "inv_mpu.h"
+#include "attitude_source.h"
+#include "FixedFormat.h"
 #include "OLED.h"
 #include "PowerDetection.h"
 #include "Motor.h"
@@ -28,6 +30,9 @@ uint8_t Attitude_IsFresh(void)
     __disable_irq();
     last = attitude_last_success;
     valid = attitude_valid;
+#ifdef ATTITUDE_SOURCE_MEKF
+    valid = valid && !AttitudeSource_IsFaulted();
+#endif
     __set_PRIMASK(primask);
     return valid && (uint32_t)(HAL_GetTick() - last) <= ATTITUDE_TIMEOUT_MS;
 }
@@ -599,6 +604,30 @@ void Data_Proc(void)
 
 void Attitude_Data_Proc(void)
 {
+#ifdef ATTITUDE_SOURCE_MEKF
+    AttitudeOutput output;
+    bool has_output = AttitudeSource_Read(&output);
+    /* 本次读取可能刚锁存故障，必须在同一次前台服务中撤销有效位。 */
+    if (AttitudeSource_IsFaulted())
+    {
+        uint32_t primask = __get_PRIMASK();
+        __disable_irq();
+        attitude_valid = 0;
+        __set_PRIMASK(primask);
+    }
+    else if (has_output &&
+        isfinite(output.pitch) && isfinite(output.roll) && isfinite(output.yaw) &&
+        isfinite(output.gx) && isfinite(output.gy) && isfinite(output.gz))
+    {
+        uint32_t primask = __get_PRIMASK();
+        __disable_irq();
+        Pitch = output.pitch; Roll = output.roll; Yaw = output.yaw;
+        gx = output.gx; gy = output.gy; gz = output.gz;
+        attitude_last_success = output.tick;
+        attitude_valid = 1;
+        __set_PRIMASK(primask);
+    }
+#else
 	//获得姿态角度与角速度
 	 float p, r, y, xrate, yrate, zrate;
      if (MPU6050_DMP_Get_Sample(&p, &r, &y, &xrate, &yrate, &zrate) == 0 &&
@@ -613,32 +642,44 @@ void Attitude_Data_Proc(void)
          attitude_valid = 1;
          __set_PRIMASK(primask);
      }
+#endif
 }
 
 /*---数据显示---*/
+static void Data_DisplayFixed(int16_t x, int16_t y, uint8_t width,
+                              const char *label, float value, uint8_t decimals)
+{
+    char text[24];
+    if (!FixedFormat_Label(text, sizeof text, label, value, decimals))
+    {
+        /* 非有限值或超范围时清除该字段，避免屏幕继续显示旧数值。 */
+        OLED_ClearArea(x, y, width, 8);
+        text[0] = 'E'; text[1] = 'R'; text[2] = 'R'; text[3] = '\0';
+    }
+    OLED_ShowString(x, y, text, OLED_6X8);
+}
+
 void Data_Display(void)
 {
-	/*油门显示*/
-	OLED_Printf(0,0,OLED_6X8,"o:%04d",Oil_Set);
-	/*各电机的PWM显示*/
-	OLED_Printf(0,8,OLED_6X8,"1:%04d",PWM_OUT1);
-	OLED_Printf(0,16,OLED_6X8,"2:%04d",PWM_OUT2);
-	OLED_Printf(0,24,OLED_6X8,"3:%04d",PWM_OUT3);
-	OLED_Printf(0,32,OLED_6X8,"4:%04d",PWM_OUT4);
-	/*当前电量*/
-	OLED_Printf(0,55,OLED_6X8,"B:%03.2f",Battery_average);
-  /*初始角度*/
-	OLED_Printf(50,0,OLED_6X8,"pitch:%04.2f",fly_pitch_zero);
-	OLED_Printf(50,8,OLED_6X8,"roll:%04.2f",fly_roll_zero);
-	OLED_Printf(50,16,OLED_6X8,"yaw:%04.2f",fly_yaw_zero);
-  /*PD调试*/
-	OLED_Printf(46,28,OLED_6X8,"Y:%04.3f",gy);
-	OLED_Printf(88,28,OLED_6X8,"P:%04.2f",Pitch);
-	OLED_Printf(46,38,OLED_6X8,"X:%04.2f",gx);
-	OLED_Printf(88,38,OLED_6X8,"R:%04.2f",Roll);
-	OLED_Printf(46,48,OLED_6X8,"Z:%04.2f",gz);
-	OLED_Printf(88,48,OLED_6X8,"Y:%04.2f",Yaw);
-	OLED_UpdateAsync();
+    /* 整数字段继续复用原 OLED_Printf，避免使用浮点格式化。 */
+    OLED_Printf(0,0,OLED_6X8,"o:%04d",Oil_Set);
+    OLED_Printf(0,8,OLED_6X8,"1:%04d",PWM_OUT1);
+    OLED_Printf(0,16,OLED_6X8,"2:%04d",PWM_OUT2);
+    OLED_Printf(0,24,OLED_6X8,"3:%04d",PWM_OUT3);
+    OLED_Printf(0,32,OLED_6X8,"4:%04d",PWM_OUT4);
+
+    /* 定点小数格式化；字段名称、屏幕位置、单位和小数位保持不变。 */
+    Data_DisplayFixed(0,55,46,"B:",Battery_average,2);
+    Data_DisplayFixed(50,0,78,"pitch:",fly_pitch_zero,2);
+    Data_DisplayFixed(50,8,78,"roll:",fly_roll_zero,2);
+    Data_DisplayFixed(50,16,78,"yaw:",fly_yaw_zero,2);
+    Data_DisplayFixed(46,28,42,"Y:",gy,3);
+    Data_DisplayFixed(88,28,40,"P:",Pitch,2);
+    Data_DisplayFixed(46,38,42,"X:",gx,2);
+    Data_DisplayFixed(88,38,40,"R:",Roll,2);
+    Data_DisplayFixed(46,48,42,"Z:",gz,2);
+    Data_DisplayFixed(88,48,40,"Y:",Yaw,2);
+    OLED_UpdateAsync();
 }
 
 /*---数据接收---*/

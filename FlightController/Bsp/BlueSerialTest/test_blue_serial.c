@@ -1,12 +1,14 @@
 /* Run from FlightController with a host GCC:
  * gcc -std=c11 -Wall -Wextra -Werror -IBsp/BlueSerialTest -IBsp
- * Bsp/BlueSerialTest/test_blue_serial.c Bsp/BlueSerial.c Bsp/Variable.c
+ * Bsp/BlueSerialTest/test_blue_serial.c Bsp/BlueSerial.c Bsp/FixedFormat.c Bsp/Variable.c
  * -o build/Debug/test_blue_serial.exe
  */
 #include "usart.h"
 #include "BlueSerial.h"
+#include "FixedFormat.h"
 #include "Variable.h"
 #include <assert.h>
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -18,6 +20,8 @@ static size_t output_length;
 static uint8_t *tx_data;
 static uint16_t tx_length;
 static unsigned tx_count;
+
+#define TEST_COUNT(array) (sizeof(array) / sizeof((array)[0]))
 
 HAL_StatusTypeDef HAL_UART_Receive_IT(UART_HandleTypeDef *uart, uint8_t *data, uint16_t length)
 {
@@ -117,8 +121,52 @@ static void test_pid_commands(void)
     assert(pitch_angle_balance_Kp == 2.85f && pitch_angle_balance_Ki == 0.25f && pitch_angle_balance_Kd == 0.048f);
 }
 
+static void test_fixed_format(void)
+{
+    static const struct {
+        float value;
+        uint8_t decimals;
+        const char *expected;
+    } cases[] = {
+        {0.0f, 2, "0.00"},
+        {-0.0f, 2, "0.00"},
+        {1.0f, 2, "1.00"},
+        {-1.25f, 2, "-1.25"},
+        {9.995f, 2, "10.00"},
+        {-9.995f, 2, "-10.00"},
+        {-0.004f, 2, "0.00"},
+        {0.004f, 2, "0.00"},
+        {123456.75f, 2, "123456.75"},
+        {-123456.75f, 2, "-123456.75"},
+        {21474836.0f, 2, "21474836.00"},
+        {-21474836.0f, 2, "-21474836.00"},
+        {20000002.0f, 2, "20000002.00"},
+        {-20000002.0f, 2, "-20000002.00"},
+        {2147483.25f, 3, "2147483.250"},
+        {2147483.5f, 3, "2147483.500"},
+        {0.125f, 3, "0.125"},
+        {-0.125f, 3, "-0.125"},
+        {12.3f, 0, "12"},
+        {-12.5f, 0, "-13"}
+    };
+    char output[24];
+    for (size_t i = 0; i < TEST_COUNT(cases); i++) {
+        assert(FixedFormat_Float(output, sizeof output,
+                                 cases[i].value, cases[i].decimals));
+        assert(strcmp(output, cases[i].expected) == 0);
+    }
+    assert(FixedFormat_Label(output, sizeof output, "P:", -3.5f, 2));
+    assert(strcmp(output, "P:-3.50") == 0);
+    assert(!FixedFormat_Float(output, 4, 123.0f, 2));
+    assert(!FixedFormat_Float(output, sizeof output, NAN, 2));
+    assert(!FixedFormat_Float(output, sizeof output, INFINITY, 2));
+    assert(!FixedFormat_Float(output, sizeof output, 4294967296.0f, 2));
+    assert(!FixedFormat_Float(output, sizeof output, 1.0f, 4));
+}
+
 int main(void)
 {
+    test_fixed_format();
     BlueSerial_Init();
     assert(receive_count == 1);
     test_pid_commands();
@@ -208,9 +256,21 @@ int main(void)
     assert(tx_count == 2 && tx_length == strlen("pid:150,3.00,9.00,4.00,4.20\r\n"));
     assert(memcmp(tx_data, "pid:150,3.00,9.00,4.00,4.20\r\n", tx_length) == 0);
     huart1.gState = HAL_UART_STATE_READY;
+    fly_pitch_zero = -1; getpitch_SET = 0; Pitch = -2.345f;
+    Pitch_Angle_out = 9.995f; Battery_average = -0.0f;
+    BlueSerial_SendWave();
+    assert(tx_count == 3 && tx_length == strlen("pid:200,-1.00,-2.35,10.00,0.00\r\n"));
+    assert(memcmp(tx_data, "pid:200,-1.00,-2.35,10.00,0.00\r\n", tx_length) == 0);
+    huart1.gState = HAL_UART_STATE_READY;
+    fly_pitch_zero = 21474836.0f; getpitch_SET = 0;
+    Pitch = 1; Pitch_Angle_out = 2; Battery_average = 4;
+    BlueSerial_SendWave();
+    assert(tx_count == 4 && tx_length == strlen("pid:250,21474836.00,1.00,2.00,4.00\r\n"));
+    assert(memcmp(tx_data, "pid:250,21474836.00,1.00,2.00,4.00\r\n", tx_length) == 0);
+    huart1.gState = HAL_UART_STATE_READY;
     fly_pitch_zero = Pitch = Pitch_Angle_out = Battery_average = 1e38f;
     BlueSerial_SendWave();
-    assert(tx_count == 2); /* Oversized CSV must not be transmitted. */
+    assert(tx_count == 4); /* Oversized CSV must not be transmitted. */
     puts("PASS: Bluetooth protocol boundaries, callbacks, PID mapping and output");
     return 0;
 }
