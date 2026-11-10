@@ -317,6 +317,15 @@ void NRF24L01_FlushRx(void)
 	NRF24L01_W_CSN(1);
 }
 
+/* 暂停接收，清空旧帧和对应中断标志，再恢复接收，避免清理期间的竞态。 */
+void NRF24L01_DiscardRx(void)
+{
+	NRF24L01_W_CE(0);
+	NRF24L01_FlushRx();
+	NRF24L01_WriteReg(NRF24L01_STATUS, 0x40);
+	NRF24L01_W_CE(1);
+}
+
 /**
   * 函    数：NRF24L01读取状态寄存器
   * 参    数：无

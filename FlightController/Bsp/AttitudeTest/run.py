@@ -55,11 +55,17 @@ uint8_t Attitude_IsFresh(void);
 void Motor_Control(void);
 uint8_t NRF24L01_R_IRQ(void) { return 0; }
 uint8_t Receive_NRF24L01_Data(uint8_t *p) { (void)p; return 1; }
-void Send(uint8_t *p) { (void)p; }
+static uint8_t sent_packet[32];
+static int sent_count;
+void Send(uint8_t *p) { memcpy(sent_packet, p, sizeof sent_packet); ++sent_count; }
 void BlueSerial_Proc(void) {}
 void LED_Time(int x) { (void)x; }
 void LED_Light(int x) { (void)x; }
 #define OLED_6X8 0
+#define OLED_8X16 1
+static char oled_status[32];
+static int oled_ok, oled_still, oled_restart;
+void OLED_Clear(void) { oled_status[0] = '\0'; oled_ok = oled_still = oled_restart = 0; }
 void OLED_Printf(int x,int y,int font,const char *fmt,...) { (void)x;(void)y;(void)font;(void)fmt; }
 static int oled_pitch_cleared, oled_pitch_error;
 void OLED_ClearArea(int x,int y,int width,int height) {
@@ -67,6 +73,10 @@ void OLED_ClearArea(int x,int y,int width,int height) {
 }
 void OLED_ShowString(int x,int y,char *text,int font) {
     (void)font;
+    if (x==0 && y==0) { strncpy(oled_status, text, sizeof oled_status - 1); oled_status[sizeof oled_status - 1] = '\0'; }
+    if (x==0 && y==40 && strcmp(text,"IMU:OK")==0) oled_ok++;
+    if (x==0 && y==16 && strcmp(text,"KEEP STILL")==0) oled_still++;
+    if (x==0 && y==32 && strcmp(text,"RESTART")==0) oled_restart++;
     if (x==88 && y==28 && strcmp(text,"ERR")==0) oled_pitch_error++;
 }
 void OLED_UpdateAsync(void) {}
@@ -145,8 +155,10 @@ int HAL_I2C_Mem_Write(I2C_HandleTypeDef *h, uint16_t addr, uint16_t reg,
 startup_safety_test = r'''
 static void packet(int key) { Receive_Data[0]=0; Receive_Data[2]=0; Receive_Data[5]=key; Data_Receive(); }
 int main(void) {
+    Data_Display(); assert(strcmp(oled_status, "IMU INIT") == 0 && oled_still);
     AttitudeSource_Init();
     assert(startup_reset_attempts == 3 && AttitudeSource_IsFaulted());
+    Data_Display(); assert(strcmp(oled_status, "IMU FAULT") == 0 && oled_still && oled_restart);
     Attitude_Data_Proc();
     assert(!Attitude_IsFresh() && Lock == 1);
     packet(0); packet(8);
@@ -226,11 +238,19 @@ int main(void) {
     AttitudeSource_Init();
     for (int i = 0; i < 310; ++i) { tick += 5; Attitude_Data_Proc(); }
     assert(Attitude_IsFresh());
+    Data_Display(); assert(strcmp(oled_status, "") == 0 && oled_ok); /* normal page replaces startup */
+    Receive_Data[0]=0; Receive_Data[5]=0; Receive_Data[6]=0; sent_count=0;
+    Lock=1; Data_Receive(); assert(sent_count==0); /* legacy joystick page */
+    Receive_Data[0]=1; Data_Receive(); assert(sent_count==1 && sent_packet[0]==2 && sent_packet[3]==0xA1);
+    Receive_Data[0]=0; Receive_Data[6]=0xA5; Lock=0; Data_Receive();
+    assert(sent_count==2 && sent_packet[3]==0xA2); /* new joystick page */
+    Receive_Data[6]=0;
     Lock=0; connect_protect=0; Oil_Get=30; Oil_Set=900;
     PWM_OUT1=PWM_OUT2=PWM_OUT3=PWM_OUT4=300;
     Motor_Control(); assert(ccr[0] && ccr[1] && ccr[2] && ccr[3]);
     bus_fail=1; tick += 5; Attitude_Data_Proc();
     assert(interrupted && !Attitude_IsFresh());
+    Data_Display(); assert(strcmp(oled_status, "IMU FAULT") == 0 && oled_still && oled_restart);
     puts("real MEKF fault preemption safety checks passed");
     return 0;
 }

@@ -50,6 +50,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Bsp/ad.c
     Bsp/oled.c
     Bsp/oled_data.c
+    Bsp/telemetry_state.c
 )
 
 # Add include paths

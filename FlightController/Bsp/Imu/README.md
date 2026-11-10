@@ -66,7 +66,7 @@ python Bsp/AttitudeTest/run.py
 
 以上命令从 `FlightController` 目录执行。CMake 默认 `MEKF`；选择 `DMP` 时不编译 MEKF 核心，反之不编译 DMP 驱动。
 
-当前 GNU ARM 14.3.1 的 MEKF Debug/Release LTO 构建，按最高 Flash 加载地址计分别为 62,720 B 和 62,624 B，均小于 65,536 B；RAM 含 512 B 堆和 4,096 B 最小栈预留共 9,608 B。DMP 回退 Release 构建占 Flash 55,892 B、RAM 8,632 B。此前记录的静态栈帧大小不代表本版运行时栈高水位，仍需实机测量。
+当前 GNU ARM 14.3.1 的 MEKF Debug/Release LTO 构建，按最高 Flash 加载地址计均为 64,564 B，距 65,536 B 上限仅余 972 B；RAM 含 512 B 堆和 4,096 B 最小栈预留共 9,616 B。DMP 回退 Release 构建占 Flash 55,908 B、RAM 8,632 B。此前记录的静态栈帧大小不代表本版运行时栈高水位，仍需实机测量。
 
 F103 无硬件 FPU，核心使用软件单精度、`math.h` 和 `string.h`，没有 RTOS 或动态分配。整个旧应用仍链接 newlib 的分配器及 `strtof` 路径，不能据此声称整机固件完全不使用动态内存。
 

@@ -31,6 +31,7 @@
 #include "nrf24l01.h"
 #include "key.h"
 #include "ad.h"
+#include "telemetry_state.h"
 #include <string.h>
 /* USER CODE END Includes */
 
@@ -60,6 +61,7 @@ volatile uint8_t Send_Flag;				//100ms 发送标志，由 1ms 中断置 1（ISR 
 uint8_t Send_Result;					//发送结果：1 成功 / 2 重传失败 / 3 状态非法 / 4 超时
 uint8_t Sig;							//最近 10 次发送的成功次数，范围 0~10
 uint8_t Mode;							//0 摇杆页 / 1 数据回传页
+static TelemetryState LockState;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -114,6 +116,7 @@ int main(void)
   OLED_Init();                     /* 硬件 I2C1 初始化 + 清屏 */
   NRF24L01_Init();                 /* 硬件 SPI2 配寄存器，进 RX 模式 */
   AD_Init();                       /* ADC 上电校准 + 启动 DMA 连续转换 */
+  TelemetryState_Reset(&LockState, HAL_GetTick());
 
   /* CubeMX 生成的 MX_TIM1_Init 只初始化不启动，必须显式启动 1ms 中断 */
   HAL_TIM_Base_Start_IT(&htim1);
@@ -155,6 +158,7 @@ int main(void)
       NRF24L01_TxPacket[3] = RH;
       NRF24L01_TxPacket[4] = RV;
       NRF24L01_TxPacket[5] = KEY;
+      NRF24L01_TxPacket[6] = 0xA5;  /* 在两个页面请求飞控遥测 */
 
       Send_Result = NRF24L01_Send();
       Sig = CalculateSuccessRatio(Send_Result);
@@ -167,38 +171,35 @@ int main(void)
       Send_Flag = 0;
     }
 
-    /* 4. 显示：Sig 行每轮都刷，与是否收到遥测无关 */
-    OLED_Printf(0, 0, OLED_8X16, "Sig:%02d", Sig);
-
+    /* 4. 两页共用遥测接收和状态超时；切页不重置最新状态。 */
+    if (TelemetryState_Expire(&LockState, HAL_GetTick()))
+    {
+      NRF24L01_DiscardRx();         /* 停顿后 FIFO 内的帧可能已经过期 */
+    }
+    else if (NRF24L01_Receive() == 1 && NRF24L01_RxPacket[0] == 0x02)
+    {
+      TelemetryState_Update(&LockState, NRF24L01_RxPacket[3], HAL_GetTick());
+      if (Mode == 1)
+      {
+        int8_t LeftPWM = (int8_t)NRF24L01_RxPacket[1];
+        int8_t RightPWM = (int8_t)NRF24L01_RxPacket[2];
+        float Angle, LeftSpeed, RightSpeed;
+        memcpy(&Angle, &NRF24L01_RxPacket[4], 4);
+        memcpy(&LeftSpeed, &NRF24L01_RxPacket[8], 4);
+        memcpy(&RightSpeed, &NRF24L01_RxPacket[12], 4);
+        OLED_Printf(0, 16, OLED_8X16, "Angle:%+06.1f", Angle);
+        OLED_Printf(0, 32, OLED_8X16, "PWM:%+05d %+05d", LeftPWM, RightPWM);
+        OLED_Printf(0, 48, OLED_8X16, "Spd:%+05.1f %+05.1f", LeftSpeed, RightSpeed);
+      }
+    }
+    OLED_Printf(0, 0, OLED_8X16, "%-7s", TelemetryState_Label(&LockState));
+    OLED_Printf(64, 0, OLED_8X16, "Sig:%02d", Sig);
     if (Mode == 0)
     {
-      /* 摇杆页 */
       OLED_Printf(0, 16, OLED_8X16, "LH:%+04d", LH);
       OLED_Printf(0, 32, OLED_8X16, "LV:%+04d", LV);
       OLED_Printf(64, 16, OLED_8X16, "RH:%+04d", RH);
       OLED_Printf(64, 32, OLED_8X16, "RV:%+04d", RV);
-    }
-    else
-    {
-      /* 回传页才轮询接收，摇杆页不收（原设计） */
-      if (NRF24L01_Receive() == 1)
-      {
-        if (NRF24L01_RxPacket[0] == 0x02)
-        {
-          int8_t LeftPWM = (int8_t)NRF24L01_RxPacket[1];
-          int8_t RightPWM = (int8_t)NRF24L01_RxPacket[2];
-          float Angle, LeftSpeed, RightSpeed;
-
-          /* 三路小端 float，用 memcpy 取，避免指针强转的对齐问题 */
-          memcpy(&Angle, &NRF24L01_RxPacket[4], 4);
-          memcpy(&LeftSpeed, &NRF24L01_RxPacket[8], 4);
-          memcpy(&RightSpeed, &NRF24L01_RxPacket[12], 4);
-
-          OLED_Printf(0, 16, OLED_8X16, "Angle:%+06.1f", Angle);
-          OLED_Printf(0, 32, OLED_8X16, "PWM:%+05d %+05d", LeftPWM, RightPWM);
-          OLED_Printf(0, 48, OLED_8X16, "Spd:%+05.1f %+05.1f", LeftSpeed, RightSpeed);
-        }
-      }
     }
 
     OLED_Update();                  /* 整屏刷新，400kHz 下约 23ms */

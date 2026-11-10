@@ -36,7 +36,7 @@ NRF 引脚跨 GPIOA/GPIOB，不能直接替换成一组硬件 SPI。OLED 使用 
 
 ## 主流程与保护
 
-CubeMX 初始化外设后，程序初始化 DWT 延时、所选姿态源、LED、电机、NRF、电池 ADC、OLED 和串口，最后启动 TIM1 中断。默认 MEKF 上电初始化期间必须物理保持静止；静止初始化完成前姿态无效且保持锁机。检测到启动运动或姿态源故障时会锁存，须静止后重新上电；恒速航向旋转可能被误判为陀螺零偏。DMP 回退的初始化失败进入 `Error_Handler`。详见 [IMU 说明](Bsp/Imu/README.md)。
+CubeMX 初始化外设后，程序初始化 DWT 延时、所选姿态源、LED、电机、NRF、电池 ADC、OLED 和串口，最后启动 TIM1 中断。默认 MEKF 上电初始化期间必须物理保持静止；OLED 显示 `IMU INIT / KEEP STILL`，静止初始化完成前姿态无效且保持锁机。首次有效姿态后显示正常数据和 `IMU:OK`；MEKF 初始化或运行中锁存故障时显示 `IMU FAULT / KEEP STILL / RESTART`。检测到启动运动或姿态源故障时会锁存，须静止后重新上电；恒速航向旋转可能被误判为陀螺零偏。DMP 回退的初始化失败进入 `Error_Handler`。详见 [IMU 说明](Bsp/Imu/README.md)。
 
 | 任务 | 执行位置 | 节奏 |
 | --- | --- | --- |
@@ -121,13 +121,14 @@ Debug 使用 `-Os -g3`，Release 使用 `-Os -g0`，两者启用 LTO。Debug 保
 | Flash | 60,220 B | 65,536 B | 5,316 B |
 | 静态 RAM（data+bss） | 5,552 B | 20,480 B | 14,928 B |
 
-本次 MEKF Debug/Release 按最高 Flash 加载地址计分别使用 62,720 B 和 62,624 B，RAM 含栈堆预留共 9,608 B；DMP 回退 Release 分别为 55,892 B 和 8,632 B。RAM 数值不代表已验证运行时栈水位。原字模数据存在初始化括号警告；本机 LTO 的 make 步骤还会出现 `Error 1 (ignored)` 提示，已观察到最终构建返回 0 并生成 ELF，不能描述成零警告构建。
+本次 MEKF Debug/Release 按最高 Flash 加载地址计均使用 64,564 B（剩余 972 B），RAM 含栈堆预留共 9,616 B；DMP 回退 Release 分别为 55,908 B 和 8,632 B。RAM 数值不代表已验证运行时栈水位。原字模数据存在初始化括号警告；本机 LTO 的 make 步骤还会出现 `Error 1 (ignored)` 提示，已观察到最终构建返回 0 并生成 ELF，不能描述成零警告构建。
 
 ## 已完成的软件验证
 
 - 本次 MEKF Debug/Release 和 DMP 回退 Release 编译链接通过，容量按 Map 检查；运行时栈水位和实机时序仍待验证。
 - `Bsp/BlueSerialTest/`：19 个调参映射、SET 兼容、非法数值、接收边界/错误恢复、FireWater 帧内容、发送忙时缓冲区保持。
-- `Bsp/AttitudeTest/`：姿态超时锁机、重新解锁、失联输出门槛、计时回绕、FIFO 有界读取和异常样本拒绝。
+- `Bsp/AttitudeTest/`：姿态超时锁机、重新解锁、失联输出门槛、计时回绕、FIFO 有界读取和异常样本拒绝，以及初始化/故障画面状态和锁机遥测编码。
+- 本次实机已观察到静止启动进入 `IMU:OK`，启动时晃动显示故障，静止后断电重启恢复；拆桨/电机断电条件下，遥控器两页的 `LOCK`、`UNLOCK` 和断联后的 `UNKNOWN` 已确认。
 - `Bsp/OLEDTest/`：异步页面、快照、BUSY 和错误恢复；业务显示帧与移植前已核对的图像一致。
 - 串口测试已在主机 GCC 的 `-Os -flto -Wall -Wextra -Werror` 条件下通过。测试不接入固件 CMake 目标，编译方法见各测试源文件头部；姿态测试使用 `python Bsp/AttitudeTest/run.py`，脚本中的主机 GCC 路径需按本机环境调整。
 

@@ -25,6 +25,7 @@ void NRF24L01_ReadRxPayload(uint8_t *DataArray, uint8_t Count);
 void NRF24L01_WriteTxPayload(uint8_t *DataArray, uint8_t Count);
 void NRF24L01_FlushTx(void);
 void NRF24L01_FlushRx(void);
+void NRF24L01_DiscardRx(void);
 uint8_t NRF24L01_ReadStatus(void);
 
 /*功能函数*/

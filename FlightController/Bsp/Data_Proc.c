@@ -661,6 +661,25 @@ static void Data_DisplayFixed(int16_t x, int16_t y, uint8_t width,
 
 void Data_Display(void)
 {
+#ifdef ATTITUDE_SOURCE_MEKF
+    /* Each async transfer uses a snapshot; repeat the new screen until sent. */
+    static uint8_t previous_screen = 0xff;
+    uint8_t screen = AttitudeSource_IsFaulted() ? 2 : (attitude_valid ? 1 : 0);
+    if (screen != previous_screen)
+    {
+        OLED_Clear();
+        previous_screen = screen;
+    }
+    if (screen != 1)
+    {
+        OLED_ShowString(0, 0, screen == 2 ? "IMU FAULT" : "IMU INIT", OLED_8X16);
+        OLED_ShowString(0, 16, "KEEP STILL", OLED_8X16);
+        if (screen == 2) OLED_ShowString(0, 32, "RESTART", OLED_8X16);
+        OLED_UpdateAsync();
+        return;
+    }
+    OLED_ShowString(0, 40, "IMU:OK", OLED_6X8);
+#endif
     /* 整数字段继续复用原 OLED_Printf，避免使用浮点格式化。 */
     OLED_Printf(0,0,OLED_6X8,"o:%04d",Oil_Set);
     OLED_Printf(0,8,OLED_6X8,"1:%04d",PWM_OUT1);
@@ -763,14 +782,14 @@ void Data_Receive(void)
 			connect_value=0;
 			connect_time=0;
 			connect_protect=0;
-			/* Telemetry downlink: reply once per received Mode==0x01 control frame (~10 Hz). */
-			if(Receive_Data[0]==0x01)
+			/* Old remotes request telemetry with mode 1; new remotes also set byte 6. */
+			if(Receive_Data[0]==0x01 || Receive_Data[6]==0xA5)
 			{
 				uint8_t i;
 				Send_Data[0]=0x02;
 				Send_Data[1]=(uint8_t)(PWM_OUT1/36);		/* motor PWM 0..3600 scaled to 0..100 */
 				Send_Data[2]=(uint8_t)(PWM_OUT2/36);		/* same scaling, remote shows PWM:%+05d */
-				Send_Data[3]=0;
+				Send_Data[3]=Lock ? 0xA1 : 0xA2; /* locked / unlocked; zero means unknown to new remotes */
 				*(float*)&Send_Data[4]=Pitch;				/* little-endian float: pitch angle */
 				*(float*)&Send_Data[8]=Roll;				/* little-endian float: roll angle */
 				*(float*)&Send_Data[12]=Battery_average;	/* little-endian float: battery volts */

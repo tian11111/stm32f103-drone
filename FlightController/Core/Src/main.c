@@ -114,6 +114,10 @@ int main(void)
 
   Delay_Init();              /* 先启用 DWT，供设备初始化及收发使用 */
 #ifdef ATTITUDE_SOURCE_MEKF
+  OLED_Init();
+  OLED_ShowString(0, 0, "IMU INIT", OLED_8X16);
+  OLED_ShowString(0, 16, "KEEP STILL", OLED_8X16);
+  OLED_Update();             /* 同步显示，随后才进入阻塞式姿态初始化 */
   AttitudeSource_Init();
 #else
   MPU6050_Init();            /* 复位并等待传感器启动后，再核验身份 */
@@ -133,7 +137,9 @@ int main(void)
   Motor_Init();              /* HAL_TIM_PWM_Start 四路 + CCR 清零 */
   NRF24L01_Init();           /* 软件 SPI 配寄存器，进 RX 模式 */
   GetBattery_Init();         /* ADC 校准 */
-  OLED_Init();               /* 硬件 I2C1 */
+#ifndef ATTITUDE_SOURCE_MEKF
+  OLED_Init();               /* 硬件 I2C1；MEKF 已在姿态初始化前启动 */
+#endif
   BlueSerial_Init();         /* HAL_UART_Receive_IT 启动接收 */
   if (HAL_TIM_Base_Start_IT(&htim1) != HAL_OK)
   {
