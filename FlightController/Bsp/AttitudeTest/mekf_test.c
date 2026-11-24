@@ -10,12 +10,14 @@ I2C_HandleTypeDef hi2c2;
 static uint32_t tick;
 static int fail_read, reads, data_ready = 1;
 static int who_am_i = 0x68, fail_who_reads, fail_reset_writes;
-static int reset_writes, signal_resets, i2c_ops, delay_calls;
+static int reset_writes, signal_resets, i2c_ops, delay_calls, bus_recovers;
 static uint32_t delays[16], retry_after_first_delay;
 static int delay_ops[16], sample_reads;
 static uint64_t first_sample_timestamp_us;
 static int16_t accel_raw[3] = {0, 0, 2048};
 static int16_t gyro_raw[3];
+
+void I2C2_BusRecover(void) { ++bus_recovers; }
 
 ImuStatus __real_imu_system_process_data_ready(ImuSystem *system, uint64_t timestamp_us);
 ImuStatus __wrap_imu_system_process_data_ready(ImuSystem *system, uint64_t timestamp_us)
@@ -147,7 +149,7 @@ int main(int argc, char **argv)
         assert(!retry_after_first_delay && delay_calls == 4);
         assert(delays[0] == IMU_STARTUP_READY_WAIT_MS);
         assert(delays[1] == 100u && delays[2] == 100u);
-        assert(reset_writes == 1 && signal_resets == 1);
+        assert(reset_writes == 1 && signal_resets == 1 && bus_recovers == 0);
         assert(!AttitudeSource_IsFaulted());
         count = i2c_ops;
         assert(!AttitudeSource_Read(&out) && i2c_ops == count);
@@ -164,7 +166,7 @@ int main(int argc, char **argv)
         assert(delays[0] == IMU_STARTUP_READY_WAIT_MS);
         assert(delays[1] == IMU_STARTUP_RETRY_DELAY_MS);
         assert(delays[2] == 100u && delays[3] == 100u);
-        assert(reset_writes == 2 && signal_resets == 1);
+        assert(reset_writes == 2 && signal_resets == 1 && bus_recovers == 1);
         assert(!AttitudeSource_IsFaulted());
         for (i = 0; i < 610; ++i) {
             tick += 5;
@@ -181,7 +183,7 @@ int main(int argc, char **argv)
         assert(delays[1] == 100u && delays[2] == 100u);
         assert(delays[3] == IMU_STARTUP_RETRY_DELAY_MS);
         assert(delays[4] == 100u && delays[5] == 100u);
-        assert(reset_writes == 2 && signal_resets == 2);
+        assert(reset_writes == 2 && signal_resets == 2 && bus_recovers == 1);
         assert(!AttitudeSource_IsFaulted());
         for (i = 0; i < 610; ++i) {
             tick += 5;
@@ -200,6 +202,7 @@ int main(int argc, char **argv)
         assert(delays[6] == IMU_STARTUP_RETRY_DELAY_MS);
         assert(reset_writes == IMU_STARTUP_INIT_MAX_ATTEMPTS);
         assert(signal_resets == IMU_STARTUP_INIT_MAX_ATTEMPTS);
+        assert(bus_recovers == IMU_STARTUP_INIT_MAX_ATTEMPTS - 1);
         assert(AttitudeSource_IsFaulted());
         fail_who_reads = 0;
         count = i2c_ops;
@@ -210,7 +213,7 @@ int main(int argc, char **argv)
     }
 
     if (argc > 1 && strcmp(argv[1], "init-wrong-id") == 0) {
-        assert(reset_writes == 1 && signal_resets == 1);
+        assert(reset_writes == 1 && signal_resets == 1 && bus_recovers == 0);
         assert(AttitudeSource_IsFaulted());
         who_am_i = 0x68;
         count = i2c_ops;

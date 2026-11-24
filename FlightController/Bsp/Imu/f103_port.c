@@ -57,6 +57,11 @@ ImuBus ImuF103_Bus(void)
     return bus;
 }
 
+void ImuF103_RecoverBus(void)
+{
+    I2C2_BusRecover();
+}
+
 void ImuF103_Config(ImuSystemConfig *config)
 {
     /* Core defaults include identity sensor-to-body and calibration matrices,
@@ -68,6 +73,10 @@ void ImuF103_Config(ImuSystemConfig *config)
     config->sensor.accel_range = IMU_MPU6050_ACCEL_16_G;
     config->sensor.dlpf = IMU_MPU6050_DLPF_94_HZ;
     config->stationary.window_samples = IMU_STATIONARY_WINDOW_SAMPLES;
+    /* 本板 MPU6050 在 ±2000 dps / 94 Hz DLPF 下实测静止陀螺噪声约 std=0.003、p2p=0.018 rad/s，
+       默认 0.003 / 0.012 门限会高频误判运动；按约 2 倍底噪裕量设置板级门限。 */
+    config->stationary.gyro_pre_std_max_rad_s = 0.006f;
+    config->stationary.gyro_pre_peak_to_peak_max_rad_s = 0.035f;
     ImuF103_ConfigureCalibration(&config->calibration);
 }
 

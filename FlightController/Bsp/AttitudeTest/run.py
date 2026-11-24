@@ -138,7 +138,8 @@ startup_bus_stub = r'''
 #include "i2c.h"
 #include "Attitude/attitude_source.h"
 I2C_HandleTypeDef hi2c2;
-static int startup_bus_failed = 1, startup_reset_attempts;
+static int startup_bus_failed = 1, startup_reset_attempts, startup_bus_recovers;
+void I2C2_BusRecover(void) { ++startup_bus_recovers; }
 void HAL_Delay(uint32_t ms) { tick += ms; }
 int HAL_I2C_Mem_Read(I2C_HandleTypeDef *h, uint16_t addr, uint16_t reg,
                      uint16_t width, uint8_t *data, uint16_t len, uint32_t timeout) {
@@ -157,7 +158,7 @@ static void packet(int key) { Receive_Data[0]=0; Receive_Data[2]=0; Receive_Data
 int main(void) {
     Data_Display(); assert(strcmp(oled_status, "IMU INIT") == 0 && oled_still);
     AttitudeSource_Init();
-    assert(startup_reset_attempts == 3 && AttitudeSource_IsFaulted());
+    assert(startup_reset_attempts == 3 && startup_bus_recovers == 2 && AttitudeSource_IsFaulted());
     Data_Display(); assert(strcmp(oled_status, "IMU FAULT") == 0 && oled_still && oled_restart);
     Attitude_Data_Proc();
     assert(!Attitude_IsFresh() && Lock == 1);
@@ -204,6 +205,7 @@ preempt_bus = r'''
 #include "Attitude/attitude_source.h"
 I2C_HandleTypeDef hi2c2;
 static int bus_fail, interrupted;
+void I2C2_BusRecover(void) {}
 void HAL_Delay(uint32_t ms) { tick += ms; }
 int HAL_I2C_Mem_Read(I2C_HandleTypeDef *h, uint16_t a, uint16_t r,
                      uint16_t w, uint8_t *d, uint16_t n, uint32_t t) {

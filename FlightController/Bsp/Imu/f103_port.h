@@ -33,6 +33,7 @@ typedef struct {
 
 uint64_t ImuClock_Update(ImuClock *clock, uint32_t tick);
 ImuBus ImuF103_Bus(void);
+void ImuF103_RecoverBus(void);
 void ImuF103_Config(ImuSystemConfig *config);
 void ImuF103_ConfigureCalibration(ImuCalibration *calibration);
 

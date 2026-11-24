@@ -52,6 +52,7 @@ void AttitudeSource_Init(void)
             attempt == IMU_STARTUP_INIT_MAX_ATTEMPTS) {
             break;
         }
+        ImuF103_RecoverBus();
         HAL_Delay(IMU_STARTUP_RETRY_DELAY_MS);
     }
     if (status == IMU_STATUS_OK) {

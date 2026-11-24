@@ -21,7 +21,49 @@
 #include "i2c.h"
 
 /* USER CODE BEGIN 0 */
+static void I2C2_DelayHalfBit(void)
+{
+  for (volatile uint32_t i = 0; i < 120U; ++i)
+  {
+    __NOP();
+  }
+}
 
+/* STM32F103 复位可能打断 MPU6050 正在进行的 I2C 传输，导致从机持续拉低 SDA。
+   在启用 I2C2 前用 GPIO 开漏打 9 个 SCL 脉冲并产生 STOP，确保释放总线。 */
+static void I2C2_ReleaseBus(void)
+{
+  GPIO_InitTypeDef gpio = {0};
+
+  __HAL_RCC_GPIOB_CLK_ENABLE();
+  __HAL_RCC_I2C2_FORCE_RESET();
+  __HAL_RCC_I2C2_RELEASE_RESET();
+
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10 | GPIO_PIN_11, GPIO_PIN_SET);
+  gpio.Pin = GPIO_PIN_10 | GPIO_PIN_11;
+  gpio.Mode = GPIO_MODE_OUTPUT_OD;
+  gpio.Speed = GPIO_SPEED_FREQ_HIGH;
+  HAL_GPIO_Init(GPIOB, &gpio);
+  I2C2_DelayHalfBit();
+
+  for (uint8_t i = 0; i < 9U; ++i)
+  {
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
+    I2C2_DelayHalfBit();
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
+    I2C2_DelayHalfBit();
+  }
+
+  /* 手动产生 STOP：SCL 低时拉低 SDA，再依次释放 SCL、SDA。 */
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
+  I2C2_DelayHalfBit();
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_RESET);
+  I2C2_DelayHalfBit();
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
+  I2C2_DelayHalfBit();
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, GPIO_PIN_SET);
+  I2C2_DelayHalfBit();
+}
 /* USER CODE END 0 */
 
 I2C_HandleTypeDef hi2c1;
@@ -61,7 +103,7 @@ void MX_I2C2_Init(void)
 {
 
   /* USER CODE BEGIN I2C2_Init 0 */
-
+  I2C2_ReleaseBus();
   /* USER CODE END I2C2_Init 0 */
 
   /* USER CODE BEGIN I2C2_Init 1 */
@@ -192,6 +234,13 @@ void HAL_I2C_MspDeInit(I2C_HandleTypeDef* i2cHandle)
 }
 
 /* USER CODE BEGIN 1 */
-
+void I2C2_BusRecover(void)
+{
+  if (hi2c2.Instance == I2C2)
+  {
+    (void)HAL_I2C_DeInit(&hi2c2);
+  }
+  MX_I2C2_Init();
+}
 /* USER CODE END 1 */
 
