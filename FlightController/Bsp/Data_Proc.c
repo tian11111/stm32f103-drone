@@ -13,7 +13,7 @@
 #include "LED.h"
 #include "BlueSerial.h"
 
-//½Ç¶È×ª»¡¶È£¬²ÎÓëPID¼ÆËã
+//è§’åº¦è½¬å¼§åº¦ï¼Œå‚ä¸ŽPIDè®¡ç®—
 #define DEG_TO_RAD 0.0174532925f
 
 #define ATTITUDE_TIMEOUT_MS 50U
@@ -38,32 +38,32 @@ uint8_t Attitude_IsFresh(void)
 }
 
 
-/*¾­¹ý¹Û²ìºóµÃ³ö*/
-//·É»úÏòÇ°ÇãÐ±--pitch¸ºÊýÔö´ó      ½ÇËÙ¶È£º  ¼´ÊÇÈÆYÖá gy¸º
-//·É»úÏòºóÇãÐ±--pitchÕýÊýÔö´ó                          gyÕý
+/*ç»è¿‡è§‚å¯ŸåŽå¾—å‡º*/
+//é£žæœºå‘å‰å€¾æ–œ--pitchè´Ÿæ•°å¢žå¤§      è§’é€Ÿåº¦ï¼š  å³æ˜¯ç»•Yè½´ gyè´Ÿ
+//é£žæœºå‘åŽå€¾æ–œ--pitchæ­£æ•°å¢žå¤§                          gyæ­£
 
-//·É»úÏò×óÇãÐ±--rollÕýÊýÔö´ó                 ¼´ÊÇÈÆXÖá gxÕý
-//·É»úÏòÓÒÇãÐ±--roll¸ºÊýÔö´ó                           gx¸º
+//é£žæœºå‘å·¦å€¾æ–œ--rollæ­£æ•°å¢žå¤§                 å³æ˜¯ç»•Xè½´ gxæ­£
+//é£žæœºå‘å³å€¾æ–œ--rollè´Ÿæ•°å¢žå¤§                           gxè´Ÿ
 
-//´ÓÉÏÍùÏÂ¿´£º
-//·É»úÄæÊ±Õë--yawÕýÊýÔö´ó                    ¼´ÊÇÈÆZÖá gzÕý
-//·É»úË³Ê±Õë--yaw¸ºÊýÔö´ó                              gz¸º
+//ä»Žä¸Šå¾€ä¸‹çœ‹ï¼š
+//é£žæœºé€†æ—¶é’ˆ--yawæ­£æ•°å¢žå¤§                    å³æ˜¯ç»•Zè½´ gzæ­£
+//é£žæœºé¡ºæ—¶é’ˆ--yawè´Ÿæ•°å¢žå¤§                              gzè´Ÿ
 
-/*---PIDµ÷¿ØÊý¾Ý´¦Àí---*/
+/*---PIDè°ƒæŽ§æ•°æ®å¤„ç†---*/
 
 #define PID_Oil_Min 360
 #define PWM_MAX 2880
 #define PWM_MIN 360
 
-#define ANGLE_ERR_THRESHOLD 3.0f    // Íâ»·»ý·Ö·ÖÀëãÐÖµ£ºÎó²î<2¡ã²Å»ý·Ö£¨½Ç¶È£©
-#define TARGET_GYRO_MAX 300.0f       // ×î´óÄ¿±ê½ÇËÙ¶È£¨¡ã/s£©£¬¿ÕÐÄ±­ÍÆ¼ö¡À50
+#define ANGLE_ERR_THRESHOLD 3.0f    // å¤–çŽ¯ç§¯åˆ†åˆ†ç¦»é˜ˆå€¼ï¼šè¯¯å·®<2Â°æ‰ç§¯åˆ†ï¼ˆè§’åº¦ï¼‰
+#define TARGET_GYRO_MAX 300.0f       // æœ€å¤§ç›®æ ‡è§’é€Ÿåº¦ï¼ˆÂ°/sï¼‰ï¼Œç©ºå¿ƒæ¯æŽ¨èÂ±50
 #define TARGET_GYRO_MIN -300.0f
-#define I_ANGLE_IMAX 500.0f           // »ý·ÖÉÏÏÞ£¨ÊÊÅä½ÇËÙ¶ÈÖ¸Áî£©
+#define I_ANGLE_IMAX 500.0f           // ç§¯åˆ†ä¸Šé™ï¼ˆé€‚é…è§’é€Ÿåº¦æŒ‡ä»¤ï¼‰
 
-#define GYRO_ERR_THRESHOLD  3.0f   // ÄÚ»·»ý·Ö·ÖÀëãÐÖµ£¨½ÇËÙ¶ÈÎó²î<5¡ã/s²ÅÀÛ¼Ó£©
-#define TARGET_PWM_MAX 1000           // ×î´óÄ¿±êPWM
+#define GYRO_ERR_THRESHOLD  3.0f   // å†…çŽ¯ç§¯åˆ†åˆ†ç¦»é˜ˆå€¼ï¼ˆè§’é€Ÿåº¦è¯¯å·®<5Â°/sæ‰ç´¯åŠ ï¼‰
+#define TARGET_PWM_MAX 1000           // æœ€å¤§ç›®æ ‡PWM
 #define TARGET_PWM_MIN -1000
-#define I_GYRO_IMAX 1200.0f           // »ý·ÖÉÏÏÞ£¨ÊÊÅä½ÇËÙ¶ÈÖ¸Áî£©
+#define I_GYRO_IMAX 1200.0f           // ç§¯åˆ†ä¸Šé™ï¼ˆé€‚é…è§’é€Ÿåº¦æŒ‡ä»¤ï¼‰
 
 /* 1 reverses the corresponding balance-remote direction. */
 #define BALANCE_REMOTE_REVERSE_THROTTLE 1
@@ -119,27 +119,27 @@ int16_t Limit_PWM(int16_t pwm) {
 }
 
 /*--------------------*/
-/*--------¸©Ñö--------*/
+/*--------ä¿¯ä»°--------*/
 /*--------------------*/
-//½Ç¶ÈÍâ»·
-float Pitch_Angle_Balance(float Angle,float Gyro) //ÉèÖÃµÄ½Ç¶ÈÓë½ÇËÙ¶È
+//è§’åº¦å¤–çŽ¯
+float Pitch_Angle_Balance(float Angle,float Gyro) //è®¾ç½®çš„è§’åº¦ä¸Žè§’é€Ÿåº¦
 {
 	float PID_Angle_Out;
-	PID_Pitch_Angle_err=(fly_pitch_zero+getpitch_SET)-Angle;//ÆÚÍûÖµ(0µã£«Ò£¿ØÖµ)-Êµ¼ÊÖµ
+	PID_Pitch_Angle_err=(fly_pitch_zero+getpitch_SET)-Angle;//æœŸæœ›å€¼(0ç‚¹ï¼‹é¥æŽ§å€¼)-å®žé™…å€¼
 	
 	if(Oil_Set > PID_Oil_Min  && fabsf(pitch_angle_balance_Ki) > (1e-6f))
   {
-		// »ý·Ö·ÖÀë£ºÖ»ÓÐÎó²î¾ø¶ÔÖµÐ¡ÓÚãÐÖµ£¬²ÅÀÛ¼Ó»ý·Ö£¨±ÜÃâ´óÎó²î±¥ºÍ£©
+		// ç§¯åˆ†åˆ†ç¦»ï¼šåªæœ‰è¯¯å·®ç»å¯¹å€¼å°äºŽé˜ˆå€¼ï¼Œæ‰ç´¯åŠ ç§¯åˆ†ï¼ˆé¿å…å¤§è¯¯å·®é¥±å’Œï¼‰
 		if(fabsf(PID_Pitch_Angle_err) < ANGLE_ERR_THRESHOLD)
 		{
 			PID_Pitch_Angle_Integral += PID_Pitch_Angle_err;
-			// »ý·ÖÏÞ·ù£¨¸¡µãÐÍ·ÀÒç³ö£©
+			// ç§¯åˆ†é™å¹…ï¼ˆæµ®ç‚¹åž‹é˜²æº¢å‡ºï¼‰
 			PID_Pitch_Angle_Integral = fminf(PID_Pitch_Angle_Integral, (float)I_ANGLE_IMAX);
 			PID_Pitch_Angle_Integral = fmaxf(PID_Pitch_Angle_Integral, (float)-I_ANGLE_IMAX);
 		}
-		//³õ²½¼ÆËã½Ç¶ÈÍâ»·Êä³öÁ¿£¨½ÇËÙ¶È£©
+		//åˆæ­¥è®¡ç®—è§’åº¦å¤–çŽ¯è¾“å‡ºé‡ï¼ˆè§’é€Ÿåº¦ï¼‰
 		PID_Angle_Out=pitch_angle_balance_Kp*PID_Pitch_Angle_err+pitch_angle_balance_Ki*PID_Pitch_Angle_Integral+pitch_angle_balance_Kd*Gyro;
-		// »ý·Ö¿¹±¥ºÍ£ºÊä³öµÄ½ÇËÙ¶È³¬ÏÞÊ±£¬·´ÏòÐÞÕý»ý·Ö£¨ºËÐÄ£¡£©
+		// ç§¯åˆ†æŠ—é¥±å’Œï¼šè¾“å‡ºçš„è§’é€Ÿåº¦è¶…é™æ—¶ï¼Œåå‘ä¿®æ­£ç§¯åˆ†ï¼ˆæ ¸å¿ƒï¼ï¼‰
 		if(PID_Angle_Out > TARGET_GYRO_MAX)
 		{
 			PID_Pitch_Angle_Integral -= (PID_Angle_Out - TARGET_GYRO_MAX) / pitch_angle_balance_Ki;
@@ -148,43 +148,43 @@ float Pitch_Angle_Balance(float Angle,float Gyro) //ÉèÖÃµÄ½Ç¶ÈÓë½ÇËÙ¶È
 		{
 			PID_Pitch_Angle_Integral -= (PID_Angle_Out - TARGET_GYRO_MIN) / pitch_angle_balance_Ki;
 		}	
-		// ¶þ´Î»ý·ÖÏÞ·ù
+		// äºŒæ¬¡ç§¯åˆ†é™å¹…
 		PID_Pitch_Angle_Integral = fminf(PID_Pitch_Angle_Integral, (float)I_ANGLE_IMAX);
 		PID_Pitch_Angle_Integral = fmaxf(PID_Pitch_Angle_Integral, (float)-I_ANGLE_IMAX);
 		
   }
-	else  PID_Pitch_Angle_Integral = 0; // ÓÍÃÅ²»×ãÊ±ÇåÁã»ý·Ö
+	else  PID_Pitch_Angle_Integral = 0; // æ²¹é—¨ä¸è¶³æ—¶æ¸…é›¶ç§¯åˆ†
 	
-	//Î»ÖÃÊ½PID¹«Ê½-¼ÆËã×îÖÕµÄÊä³öÁ¿
+	//ä½ç½®å¼PIDå…¬å¼-è®¡ç®—æœ€ç»ˆçš„è¾“å‡ºé‡
 	PID_Angle_Out=pitch_angle_balance_Kp*PID_Pitch_Angle_err+pitch_angle_balance_Ki*PID_Pitch_Angle_Integral+pitch_angle_balance_Kd*Gyro;
-	//ÏÞ·ù¶È
+	//é™å¹…åº¦
 	PID_Angle_Out = fminf(fmaxf(PID_Angle_Out, (float)TARGET_GYRO_MIN), (float)TARGET_GYRO_MAX);
 	
 	return PID_Angle_Out;
 }
 
-//½ÇËÙ¶ÈÄÚ»·
-int16_t Pitch_Gyro_Balance(float PID_Angle_Out,float Gyro) //ÉèÖÃµÄ½Ç¶ÈÓë½ÇËÙ¶È
+//è§’é€Ÿåº¦å†…çŽ¯
+int16_t Pitch_Gyro_Balance(float PID_Angle_Out,float Gyro) //è®¾ç½®çš„è§’åº¦ä¸Žè§’é€Ÿåº¦
 {
 	float PID_PWM_Balance;
-  // ¼ÆËã½ÇËÙ¶ÈÎó²î£ºÄ¿±ê½ÇËÙ¶È£¨Íâ»·Êä³ö£©- Êµ¼Ê½ÇËÙ¶È£¨DMPÂË²¨ºó£©
+  // è®¡ç®—è§’é€Ÿåº¦è¯¯å·®ï¼šç›®æ ‡è§’é€Ÿåº¦ï¼ˆå¤–çŽ¯è¾“å‡ºï¼‰- å®žé™…è§’é€Ÿåº¦ï¼ˆDMPæ»¤æ³¢åŽï¼‰
   PID_Pitch_Gyro_err = PID_Angle_Out - Gyro;
-  // ±ß½çÌõ¼þ£ºÓÍÃÅ×ã¹» + ÄÚ»·KiÓÐÐ§£¨·ÇÁã£©
+  // è¾¹ç•Œæ¡ä»¶ï¼šæ²¹é—¨è¶³å¤Ÿ + å†…çŽ¯Kiæœ‰æ•ˆï¼ˆéžé›¶ï¼‰
   if (Oil_Set > PID_Oil_Min && fabsf(pitch_gyro_balance_Ki) > (1e-6f))
   {
-		// »ý·Ö·ÖÀë£º½ö½ÇËÙ¶ÈÎó²îÐ¡µÄÊ±ºòÀÛ¼Ó»ý·Ö£¨±ÜÃâ´óÎó²î±¥ºÍ£©
+		// ç§¯åˆ†åˆ†ç¦»ï¼šä»…è§’é€Ÿåº¦è¯¯å·®å°çš„æ—¶å€™ç´¯åŠ ç§¯åˆ†ï¼ˆé¿å…å¤§è¯¯å·®é¥±å’Œï¼‰
 		if (fabsf(PID_Pitch_Gyro_err) < GYRO_ERR_THRESHOLD)
 		{
 				PID_Pitch_Gyro_Integral += PID_Pitch_Gyro_err;
-				//»ý·ÖÏÞ·ù£ºË«ÏòÔ¼Êø£¬·ÀÖ¹»ý·ÖÒç³ö
+				//ç§¯åˆ†é™å¹…ï¼šåŒå‘çº¦æŸï¼Œé˜²æ­¢ç§¯åˆ†æº¢å‡º
 				PID_Pitch_Gyro_Integral = fminf(PID_Pitch_Gyro_Integral, I_GYRO_IMAX);
 				PID_Pitch_Gyro_Integral = fmaxf(PID_Pitch_Gyro_Integral, -I_GYRO_IMAX);
 		}
-		//³õ²½¼ÆËãÄÚ»·Êä³ö£¨Ô¤ÅÐ£¬ÓÃÓÚ»ý·Ö¿¹±¥ºÍ£©
+		//åˆæ­¥è®¡ç®—å†…çŽ¯è¾“å‡ºï¼ˆé¢„åˆ¤ï¼Œç”¨äºŽç§¯åˆ†æŠ—é¥±å’Œï¼‰
 		PID_PWM_Balance=pitch_gyro_balance_Kp*PID_Pitch_Gyro_err+pitch_gyro_balance_Ki*PID_Pitch_Gyro_Integral
 		+pitch_gyro_balance_Kd*(PID_Pitch_Gyro_err-PID_Pitch_Gyro_err_last);
 
-		//»ý·Ö¿¹±¥ºÍ£ºÊä³ö³¬PWMÏÞÊ±£¬·´ÏòÐÞÕý»ý·Ö£¨ºËÐÄ£¡£©
+		//ç§¯åˆ†æŠ—é¥±å’Œï¼šè¾“å‡ºè¶…PWMé™æ—¶ï¼Œåå‘ä¿®æ­£ç§¯åˆ†ï¼ˆæ ¸å¿ƒï¼ï¼‰
 		if (PID_PWM_Balance > TARGET_PWM_MAX)
 		{
 				PID_Pitch_Gyro_Integral -= (PID_PWM_Balance - TARGET_PWM_MAX) / pitch_gyro_balance_Ki;
@@ -194,51 +194,51 @@ int16_t Pitch_Gyro_Balance(float PID_Angle_Out,float Gyro) //ÉèÖÃµÄ½Ç¶ÈÓë½ÇËÙ¶È
 				PID_Pitch_Gyro_Integral -= (PID_PWM_Balance - TARGET_PWM_MIN) / pitch_gyro_balance_Ki;
 		}
 		
-		//¶þ´Î»ý·ÖÏÞ·ù
+		//äºŒæ¬¡ç§¯åˆ†é™å¹…
 		PID_Pitch_Gyro_Integral = fminf(PID_Pitch_Gyro_Integral, I_GYRO_IMAX); 
     PID_Pitch_Gyro_Integral = fmaxf(PID_Pitch_Gyro_Integral, -I_GYRO_IMAX); 
 		
 	}
 	else
 	{
-		//ÓÍÃÅ²»×ã/KiÎÞÐ§Ê±£¬ÇåÁãÄÚ»·»ý·Ö
+		//æ²¹é—¨ä¸è¶³/Kiæ— æ•ˆæ—¶ï¼Œæ¸…é›¶å†…çŽ¯ç§¯åˆ†
 		PID_Pitch_Gyro_Integral = 0.0f;
 	}
-	//ÖØÐÂ¼ÆËã×îÖÕÊä³ö£¨»ùÓÚÐÞÕýºóµÄ»ý·Ö£©
+	//é‡æ–°è®¡ç®—æœ€ç»ˆè¾“å‡ºï¼ˆåŸºäºŽä¿®æ­£åŽçš„ç§¯åˆ†ï¼‰
 	PID_PWM_Balance=pitch_gyro_balance_Kp*PID_Pitch_Gyro_err+pitch_gyro_balance_Ki*PID_Pitch_Gyro_Integral
                   +pitch_gyro_balance_Kd*(PID_Pitch_Gyro_err-PID_Pitch_Gyro_err_last);
-	// PWMÏÞ·ù£¨ÄÚ»·×îÖÕÊä³öÊÇµç»úPWM£¬Ðè×ªÕûÐÍ£©
+	// PWMé™å¹…ï¼ˆå†…çŽ¯æœ€ç»ˆè¾“å‡ºæ˜¯ç”µæœºPWMï¼Œéœ€è½¬æ•´åž‹ï¼‰
 	PID_PWM_Balance = fminf(fmaxf(PID_PWM_Balance, (float)TARGET_PWM_MIN), (float)TARGET_PWM_MAX);
-	//¼ÇÂ¼µ±Ç°½ÇËÙ¶È£¬ÓÃÓÚÏÂÒ»Ö¡DÏî¼ÆËã
+	//è®°å½•å½“å‰è§’é€Ÿåº¦ï¼Œç”¨äºŽä¸‹ä¸€å¸§Dé¡¹è®¡ç®—
 	PID_Pitch_Gyro_err_last = PID_Pitch_Gyro_err;
 
-	// ×ªÕûÐÍ·µ»Ø£¨µç»úÇý¶¯ÐèÕûÐÍPWM£©
+	// è½¬æ•´åž‹è¿”å›žï¼ˆç”µæœºé©±åŠ¨éœ€æ•´åž‹PWMï¼‰
 	return (int16_t)PID_PWM_Balance;
 }
 
 /*--------------------*/
-/*--------·­¹ö--------*/
+/*--------ç¿»æ»š--------*/
 /*--------------------*/
-//½Ç¶ÈÍâ»·
-float Roll_Angle_Balance(float Angle,float Gyro) //ÉèÖÃµÄ½Ç¶ÈÓë½ÇËÙ¶È
+//è§’åº¦å¤–çŽ¯
+float Roll_Angle_Balance(float Angle,float Gyro) //è®¾ç½®çš„è§’åº¦ä¸Žè§’é€Ÿåº¦
 {
 	float PID_Angle_Out;
-	PID_Roll_Angle_err=(fly_roll_zero+getroll_SET)-Angle;//ÆÚÍûÖµ(0µã£«Ò£¿ØÖµ)-Êµ¼ÊÖµ
+	PID_Roll_Angle_err=(fly_roll_zero+getroll_SET)-Angle;//æœŸæœ›å€¼(0ç‚¹ï¼‹é¥æŽ§å€¼)-å®žé™…å€¼
 	
 	if(Oil_Set > PID_Oil_Min && fabsf(roll_angle_balance_Ki) > (1e-6f))
   {
-		// »ý·Ö·ÖÀë£ºÖ»ÓÐÎó²î¾ø¶ÔÖµÐ¡ÓÚãÐÖµ£¬²ÅÀÛ¼Ó»ý·Ö£¨±ÜÃâ´óÎó²î±¥ºÍ£©
+		// ç§¯åˆ†åˆ†ç¦»ï¼šåªæœ‰è¯¯å·®ç»å¯¹å€¼å°äºŽé˜ˆå€¼ï¼Œæ‰ç´¯åŠ ç§¯åˆ†ï¼ˆé¿å…å¤§è¯¯å·®é¥±å’Œï¼‰
 		if(fabsf(PID_Roll_Angle_err) < ANGLE_ERR_THRESHOLD)
 		{
 			PID_Roll_Angle_Integral += PID_Roll_Angle_err;
-			// »ý·ÖÏÞ·ù£¨¸¡µãÐÍ·ÀÒç³ö£©
+			// ç§¯åˆ†é™å¹…ï¼ˆæµ®ç‚¹åž‹é˜²æº¢å‡ºï¼‰
 			PID_Roll_Angle_Integral = fminf(PID_Roll_Angle_Integral, (float)I_ANGLE_IMAX);
 			PID_Roll_Angle_Integral = fmaxf(PID_Roll_Angle_Integral, (float)-I_ANGLE_IMAX);
 		}
-		//³õ²½¼ÆËã½Ç¶ÈÍâ»·Êä³öÁ¿£¨½ÇËÙ¶È£©
+		//åˆæ­¥è®¡ç®—è§’åº¦å¤–çŽ¯è¾“å‡ºé‡ï¼ˆè§’é€Ÿåº¦ï¼‰
 		PID_Angle_Out=roll_angle_balance_Kp*PID_Roll_Angle_err+roll_angle_balance_Ki*PID_Roll_Angle_Integral+roll_angle_balance_Kd*Gyro;
 		
-		//»ý·Ö¿¹±¥ºÍ£ºÊä³öµÄ½ÇËÙ¶È³¬ÏÞÊ±£¬·´ÏòÐÞÕý»ý·Ö£¨ºËÐÄ£¡£©
+		//ç§¯åˆ†æŠ—é¥±å’Œï¼šè¾“å‡ºçš„è§’é€Ÿåº¦è¶…é™æ—¶ï¼Œåå‘ä¿®æ­£ç§¯åˆ†ï¼ˆæ ¸å¿ƒï¼ï¼‰
 		if(PID_Angle_Out > TARGET_GYRO_MAX)
 		{
 			PID_Roll_Angle_Integral -= (PID_Angle_Out - TARGET_GYRO_MAX) / roll_angle_balance_Ki;
@@ -247,42 +247,42 @@ float Roll_Angle_Balance(float Angle,float Gyro) //ÉèÖÃµÄ½Ç¶ÈÓë½ÇËÙ¶È
 		{
 			PID_Roll_Angle_Integral -= (PID_Angle_Out - TARGET_GYRO_MIN) / roll_angle_balance_Ki;
 		}	
-			//¶þ´Î»ý·ÖÏÞ·ù
+			//äºŒæ¬¡ç§¯åˆ†é™å¹…
 		PID_Roll_Angle_Integral = fminf(PID_Roll_Angle_Integral, (float)I_ANGLE_IMAX);
 		PID_Roll_Angle_Integral = fmaxf(PID_Roll_Angle_Integral, (float)-I_ANGLE_IMAX);
   }
-	else  PID_Roll_Angle_Integral = 0; // ÓÍÃÅ²»×ãÊ±ÇåÁã»ý·Ö
+	else  PID_Roll_Angle_Integral = 0; // æ²¹é—¨ä¸è¶³æ—¶æ¸…é›¶ç§¯åˆ†
 	
-	//Î»ÖÃÊ½PID¹«Ê½-¼ÆËã×îÖÕµÄÊä³öÁ¿
+	//ä½ç½®å¼PIDå…¬å¼-è®¡ç®—æœ€ç»ˆçš„è¾“å‡ºé‡
 	PID_Angle_Out=roll_angle_balance_Kp*PID_Roll_Angle_err+roll_angle_balance_Ki*PID_Roll_Angle_Integral+roll_angle_balance_Kd*Gyro;
-	//ÏÞ·ù¶È
+	//é™å¹…åº¦
 	PID_Angle_Out = fminf(fmaxf(PID_Angle_Out, (float)TARGET_GYRO_MIN), (float)TARGET_GYRO_MAX);
 	
 	return PID_Angle_Out;
 }
 
-//½ÇËÙ¶ÈÄÚ»·
-int16_t Roll_Gyro_Balance(float PID_Angle_Out,float Gyro) //ÉèÖÃµÄ½Ç¶ÈÓë½ÇËÙ¶È
+//è§’é€Ÿåº¦å†…çŽ¯
+int16_t Roll_Gyro_Balance(float PID_Angle_Out,float Gyro) //è®¾ç½®çš„è§’åº¦ä¸Žè§’é€Ÿåº¦
 {
 	float PID_PWM_Balance;
-  // ¼ÆËã½ÇËÙ¶ÈÎó²î£ºÄ¿±ê½ÇËÙ¶È£¨Íâ»·Êä³ö£©- Êµ¼Ê½ÇËÙ¶È£¨DMPÂË²¨ºó£©
+  // è®¡ç®—è§’é€Ÿåº¦è¯¯å·®ï¼šç›®æ ‡è§’é€Ÿåº¦ï¼ˆå¤–çŽ¯è¾“å‡ºï¼‰- å®žé™…è§’é€Ÿåº¦ï¼ˆDMPæ»¤æ³¢åŽï¼‰
   PID_Roll_Gyro_err = PID_Angle_Out - Gyro;
-  // ±ß½çÌõ¼þ£ºÓÍÃÅ×ã¹» + ÄÚ»·KiÓÐÐ§£¨·ÇÁã£©
+  // è¾¹ç•Œæ¡ä»¶ï¼šæ²¹é—¨è¶³å¤Ÿ + å†…çŽ¯Kiæœ‰æ•ˆï¼ˆéžé›¶ï¼‰
   if (Oil_Set > PID_Oil_Min && fabsf(roll_gyro_balance_Ki) > (1e-6f))
   {
-		// »ý·Ö·ÖÀë£º½ö½ÇËÙ¶ÈÎó²îÐ¡µÄÊ±ºòÀÛ¼Ó»ý·Ö£¨±ÜÃâ´óÎó²î±¥ºÍ£©
+		// ç§¯åˆ†åˆ†ç¦»ï¼šä»…è§’é€Ÿåº¦è¯¯å·®å°çš„æ—¶å€™ç´¯åŠ ç§¯åˆ†ï¼ˆé¿å…å¤§è¯¯å·®é¥±å’Œï¼‰
 		if (fabsf(PID_Roll_Gyro_err) < GYRO_ERR_THRESHOLD)
 		{
 				PID_Roll_Gyro_Integral += PID_Roll_Gyro_err;
-				//»ý·ÖÏÞ·ù£ºË«ÏòÔ¼Êø£¬·ÀÖ¹»ý·ÖÒç³ö
+				//ç§¯åˆ†é™å¹…ï¼šåŒå‘çº¦æŸï¼Œé˜²æ­¢ç§¯åˆ†æº¢å‡º
 				PID_Roll_Gyro_Integral = fminf(PID_Roll_Gyro_Integral, I_GYRO_IMAX);
 				PID_Roll_Gyro_Integral = fmaxf(PID_Roll_Gyro_Integral, -I_GYRO_IMAX);
 		}
-		//³õ²½¼ÆËãÄÚ»·Êä³ö£¨Ô¤ÅÐ£¬ÓÃÓÚ»ý·Ö¿¹±¥ºÍ£©
+		//åˆæ­¥è®¡ç®—å†…çŽ¯è¾“å‡ºï¼ˆé¢„åˆ¤ï¼Œç”¨äºŽç§¯åˆ†æŠ—é¥±å’Œï¼‰
 		PID_PWM_Balance=roll_gyro_balance_Kp*PID_Roll_Gyro_err+roll_gyro_balance_Ki*PID_Roll_Gyro_Integral
 		+roll_gyro_balance_Kd*(PID_Roll_Gyro_err-PID_Roll_Gyro_err_last);
 
-		//»ý·Ö¿¹±¥ºÍ£ºÊä³ö³¬PWMÏÞÊ±£¬·´ÏòÐÞÕý»ý·Ö£¨ºËÐÄ£¡£©
+		//ç§¯åˆ†æŠ—é¥±å’Œï¼šè¾“å‡ºè¶…PWMé™æ—¶ï¼Œåå‘ä¿®æ­£ç§¯åˆ†ï¼ˆæ ¸å¿ƒï¼ï¼‰
 		if (PID_PWM_Balance > TARGET_PWM_MAX)
 		{
 				PID_Roll_Gyro_Integral -= (PID_PWM_Balance - TARGET_PWM_MAX) / roll_gyro_balance_Ki;
@@ -292,53 +292,53 @@ int16_t Roll_Gyro_Balance(float PID_Angle_Out,float Gyro) //ÉèÖÃµÄ½Ç¶ÈÓë½ÇËÙ¶È
 				PID_Roll_Gyro_Integral -= (PID_PWM_Balance - TARGET_PWM_MIN) / roll_gyro_balance_Ki;
 		}
 		
-		//¶þ´Î»ý·ÖÏÞ·ù
+		//äºŒæ¬¡ç§¯åˆ†é™å¹…
 		PID_Roll_Gyro_Integral = fminf(PID_Roll_Gyro_Integral, I_GYRO_IMAX); 
     PID_Roll_Gyro_Integral = fmaxf(PID_Roll_Gyro_Integral, -I_GYRO_IMAX); 
 		
 	}
 	else
 	{
-		//ÓÍÃÅ²»×ã/KiÎÞÐ§Ê±£¬ÇåÁãÄÚ»·»ý·Ö
+		//æ²¹é—¨ä¸è¶³/Kiæ— æ•ˆæ—¶ï¼Œæ¸…é›¶å†…çŽ¯ç§¯åˆ†
 		PID_Roll_Gyro_Integral = 0.0f;
 	}
-	//ÖØÐÂ¼ÆËã×îÖÕÊä³ö£¨»ùÓÚÐÞÕýºóµÄ»ý·Ö£©
+	//é‡æ–°è®¡ç®—æœ€ç»ˆè¾“å‡ºï¼ˆåŸºäºŽä¿®æ­£åŽçš„ç§¯åˆ†ï¼‰
 	PID_PWM_Balance=roll_gyro_balance_Kp*PID_Roll_Gyro_err+roll_gyro_balance_Ki*PID_Roll_Gyro_Integral
                   +roll_gyro_balance_Kd*(PID_Roll_Gyro_err-PID_Roll_Gyro_err_last);
-	//PWMÏÞ·ù£¨ÄÚ»·×îÖÕÊä³öÊÇµç»úPWM£¬Ðè×ªÕûÐÍ£©
+	//PWMé™å¹…ï¼ˆå†…çŽ¯æœ€ç»ˆè¾“å‡ºæ˜¯ç”µæœºPWMï¼Œéœ€è½¬æ•´åž‹ï¼‰
 	PID_PWM_Balance = fminf(fmaxf(PID_PWM_Balance, (float)TARGET_PWM_MIN), (float)TARGET_PWM_MAX);
-	//¼ÇÂ¼µ±Ç°½ÇËÙ¶È£¬ÓÃÓÚÏÂÒ»Ö¡DÏî¼ÆËã
+	//è®°å½•å½“å‰è§’é€Ÿåº¦ï¼Œç”¨äºŽä¸‹ä¸€å¸§Dé¡¹è®¡ç®—
 	PID_Roll_Gyro_err_last = PID_Roll_Gyro_err;
 
-	//×ªÕûÐÍ·µ»Ø£¨µç»úÇý¶¯ÐèÕûÐÍPWM£©
+	//è½¬æ•´åž‹è¿”å›žï¼ˆç”µæœºé©±åŠ¨éœ€æ•´åž‹PWMï¼‰
 	return (int16_t)PID_PWM_Balance;
 	
 }
 
 /*--------------------*/
-/*--------º½Ïò--------*/
+/*--------èˆªå‘--------*/
 /*--------------------*/
-//½Ç¶ÈÍâ»·
-float Yaw_Angle_Balance(float Angle,float Gyro) //ÉèÖÃµÄ½Ç¶ÈÓë½ÇËÙ¶È
+//è§’åº¦å¤–çŽ¯
+float Yaw_Angle_Balance(float Angle,float Gyro) //è®¾ç½®çš„è§’åº¦ä¸Žè§’é€Ÿåº¦
 {
 	float PID_Angle_Out;
-	PID_Yaw_Angle_err=(fly_yaw_zero+getyaw_SET)-Angle;//ÆÚÍûÖµ(0µã£«Ò£¿ØÖµ)-Êµ¼ÊÖµ
+	PID_Yaw_Angle_err=(fly_yaw_zero+getyaw_SET)-Angle;//æœŸæœ›å€¼(0ç‚¹ï¼‹é¥æŽ§å€¼)-å®žé™…å€¼
 	if(PID_Yaw_Angle_err > 180.0f) PID_Yaw_Angle_err -= 360.0f;
 	else if(PID_Yaw_Angle_err < -180.0f) PID_Yaw_Angle_err += 360.0f;
 	
 	if(Oil_Set > PID_Oil_Min && fabsf(yaw_angle_balance_Ki) > (1e-6f))
   {
-		// »ý·Ö·ÖÀë£ºÖ»ÓÐÎó²î¾ø¶ÔÖµÐ¡ÓÚãÐÖµ£¬²ÅÀÛ¼Ó»ý·Ö£¨±ÜÃâ´óÎó²î±¥ºÍ£©
+		// ç§¯åˆ†åˆ†ç¦»ï¼šåªæœ‰è¯¯å·®ç»å¯¹å€¼å°äºŽé˜ˆå€¼ï¼Œæ‰ç´¯åŠ ç§¯åˆ†ï¼ˆé¿å…å¤§è¯¯å·®é¥±å’Œï¼‰
 		if(fabsf(PID_Yaw_Angle_err) < ANGLE_ERR_THRESHOLD)
 		{
 			PID_Yaw_Angle_Integral += PID_Yaw_Angle_err;
-			// »ý·ÖÏÞ·ù£¨¸¡µãÐÍ·ÀÒç³ö£©
+			// ç§¯åˆ†é™å¹…ï¼ˆæµ®ç‚¹åž‹é˜²æº¢å‡ºï¼‰
 			PID_Yaw_Angle_Integral = fminf(PID_Yaw_Angle_Integral, (float)I_ANGLE_IMAX);
 			PID_Yaw_Angle_Integral = fmaxf(PID_Yaw_Angle_Integral, (float)-I_ANGLE_IMAX);
 		}
-		//³õ²½¼ÆËã½Ç¶ÈÍâ»·Êä³öÁ¿£¨½ÇËÙ¶È£©
+		//åˆæ­¥è®¡ç®—è§’åº¦å¤–çŽ¯è¾“å‡ºé‡ï¼ˆè§’é€Ÿåº¦ï¼‰
 		PID_Angle_Out=yaw_angle_balance_Kp*PID_Yaw_Angle_err+yaw_angle_balance_Ki*PID_Yaw_Angle_Integral+yaw_angle_balance_Kd*Gyro;
-		// »ý·Ö¿¹±¥ºÍ£ºÊä³öµÄ½ÇËÙ¶È³¬ÏÞÊ±£¬·´ÏòÐÞÕý»ý·Ö£¨ºËÐÄ£¡£©
+		// ç§¯åˆ†æŠ—é¥±å’Œï¼šè¾“å‡ºçš„è§’é€Ÿåº¦è¶…é™æ—¶ï¼Œåå‘ä¿®æ­£ç§¯åˆ†ï¼ˆæ ¸å¿ƒï¼ï¼‰
 		if(PID_Angle_Out > TARGET_GYRO_MAX)
 		{
 			PID_Yaw_Angle_Integral -= (PID_Angle_Out - TARGET_GYRO_MAX) / yaw_angle_balance_Ki;
@@ -348,42 +348,42 @@ float Yaw_Angle_Balance(float Angle,float Gyro) //ÉèÖÃµÄ½Ç¶ÈÓë½ÇËÙ¶È
 			PID_Yaw_Angle_Integral -= (PID_Angle_Out - TARGET_GYRO_MIN) / yaw_angle_balance_Ki;
 		}	
 		
-				//¶þ´Î»ý·ÖÏÞ·ù
+				//äºŒæ¬¡ç§¯åˆ†é™å¹…
 		PID_Yaw_Angle_Integral = fminf(PID_Yaw_Angle_Integral, (float)I_ANGLE_IMAX);
 		PID_Yaw_Angle_Integral = fmaxf(PID_Yaw_Angle_Integral, (float)-I_ANGLE_IMAX);
 		
   }
-	else  PID_Yaw_Angle_Integral = 0; // ÓÍÃÅ²»×ãÊ±ÇåÁã»ý·Ö
+	else  PID_Yaw_Angle_Integral = 0; // æ²¹é—¨ä¸è¶³æ—¶æ¸…é›¶ç§¯åˆ†
 	
-	//Î»ÖÃÊ½PID¹«Ê½-¼ÆËã×îÖÕµÄÊä³öÁ¿
+	//ä½ç½®å¼PIDå…¬å¼-è®¡ç®—æœ€ç»ˆçš„è¾“å‡ºé‡
 	PID_Angle_Out=yaw_angle_balance_Kp*PID_Yaw_Angle_err+yaw_angle_balance_Ki*PID_Yaw_Angle_Integral+yaw_angle_balance_Kd*Gyro;
-	//ÏÞ·ù¶È
+	//é™å¹…åº¦
 	PID_Angle_Out = fminf(fmaxf(PID_Angle_Out, (float)TARGET_GYRO_MIN), (float)TARGET_GYRO_MAX);
 	return PID_Angle_Out;
 }
 
-//½ÇËÙ¶ÈÄÚ»·
-int16_t Yaw_Gyro_Balance(float PID_Angle_Out,float Gyro) //ÉèÖÃµÄ½Ç¶ÈÓë½ÇËÙ¶È
+//è§’é€Ÿåº¦å†…çŽ¯
+int16_t Yaw_Gyro_Balance(float PID_Angle_Out,float Gyro) //è®¾ç½®çš„è§’åº¦ä¸Žè§’é€Ÿåº¦
 {
 	float PID_PWM_Balance;
-  // ¼ÆËã½ÇËÙ¶ÈÎó²î£ºÄ¿±ê½ÇËÙ¶È£¨Íâ»·Êä³ö£©- Êµ¼Ê½ÇËÙ¶È£¨DMPÂË²¨ºó£©
+  // è®¡ç®—è§’é€Ÿåº¦è¯¯å·®ï¼šç›®æ ‡è§’é€Ÿåº¦ï¼ˆå¤–çŽ¯è¾“å‡ºï¼‰- å®žé™…è§’é€Ÿåº¦ï¼ˆDMPæ»¤æ³¢åŽï¼‰
   PID_Yaw_Gyro_err = PID_Angle_Out - Gyro;
-  // ±ß½çÌõ¼þ£ºÓÍÃÅ×ã¹» + ÄÚ»·KiÓÐÐ§£¨·ÇÁã£©
+  // è¾¹ç•Œæ¡ä»¶ï¼šæ²¹é—¨è¶³å¤Ÿ + å†…çŽ¯Kiæœ‰æ•ˆï¼ˆéžé›¶ï¼‰
   if (Oil_Set > PID_Oil_Min && fabsf(yaw_gyro_balance_Ki) > (1e-6f))
   {
-		// »ý·Ö·ÖÀë£º½ö½ÇËÙ¶ÈÎó²îÐ¡µÄÊ±ºòÀÛ¼Ó»ý·Ö£¨±ÜÃâ´óÎó²î±¥ºÍ£©
+		// ç§¯åˆ†åˆ†ç¦»ï¼šä»…è§’é€Ÿåº¦è¯¯å·®å°çš„æ—¶å€™ç´¯åŠ ç§¯åˆ†ï¼ˆé¿å…å¤§è¯¯å·®é¥±å’Œï¼‰
 		if (fabsf(PID_Yaw_Gyro_err) < GYRO_ERR_THRESHOLD)
 		{
 				PID_Yaw_Gyro_Integral += PID_Yaw_Gyro_err;
-				//»ý·ÖÏÞ·ù£ºË«ÏòÔ¼Êø£¬·ÀÖ¹»ý·ÖÒç³ö
+				//ç§¯åˆ†é™å¹…ï¼šåŒå‘çº¦æŸï¼Œé˜²æ­¢ç§¯åˆ†æº¢å‡º
 				PID_Yaw_Gyro_Integral = fminf(PID_Yaw_Gyro_Integral, I_GYRO_IMAX);
 				PID_Yaw_Gyro_Integral = fmaxf(PID_Yaw_Gyro_Integral, -I_GYRO_IMAX);
 		}
-		//³õ²½¼ÆËãÄÚ»·Êä³ö£¨Ô¤ÅÐ£¬ÓÃÓÚ»ý·Ö¿¹±¥ºÍ£©
+		//åˆæ­¥è®¡ç®—å†…çŽ¯è¾“å‡ºï¼ˆé¢„åˆ¤ï¼Œç”¨äºŽç§¯åˆ†æŠ—é¥±å’Œï¼‰
 		PID_PWM_Balance=yaw_gyro_balance_Kp*PID_Yaw_Gyro_err+yaw_gyro_balance_Ki*PID_Yaw_Gyro_Integral
 		+yaw_gyro_balance_Kd*(PID_Yaw_Gyro_err-PID_Yaw_Gyro_err_last);
 
-		//»ý·Ö¿¹±¥ºÍ£ºÊä³ö³¬PWMÏÞÊ±£¬·´ÏòÐÞÕý»ý·Ö£¨ºËÐÄ£¡£©
+		//ç§¯åˆ†æŠ—é¥±å’Œï¼šè¾“å‡ºè¶…PWMé™æ—¶ï¼Œåå‘ä¿®æ­£ç§¯åˆ†ï¼ˆæ ¸å¿ƒï¼ï¼‰
 		if (PID_PWM_Balance > TARGET_PWM_MAX)
 		{
 				PID_Yaw_Gyro_Integral -= (PID_PWM_Balance - TARGET_PWM_MAX) / yaw_gyro_balance_Ki;
@@ -393,25 +393,25 @@ int16_t Yaw_Gyro_Balance(float PID_Angle_Out,float Gyro) //ÉèÖÃµÄ½Ç¶ÈÓë½ÇËÙ¶È
 				PID_Yaw_Gyro_Integral -= (PID_PWM_Balance - TARGET_PWM_MIN) / yaw_gyro_balance_Ki;
 		}
 		
-		//¶þ´Î»ý·ÖÏÞ·ù
+		//äºŒæ¬¡ç§¯åˆ†é™å¹…
 		PID_Yaw_Gyro_Integral = fminf(PID_Yaw_Gyro_Integral, I_GYRO_IMAX); 
     PID_Yaw_Gyro_Integral = fmaxf(PID_Yaw_Gyro_Integral, -I_GYRO_IMAX); 
 		
 	}
 	else
 	{
-		// ÓÍÃÅ²»×ã/KiÎÞÐ§Ê±£¬ÇåÁãÄÚ»·»ý·Ö
+		// æ²¹é—¨ä¸è¶³/Kiæ— æ•ˆæ—¶ï¼Œæ¸…é›¶å†…çŽ¯ç§¯åˆ†
 		PID_Yaw_Gyro_Integral = 0.0f;
 	}
-	//ÖØÐÂ¼ÆËã×îÖÕÊä³ö£¨»ùÓÚÐÞÕýºóµÄ»ý·Ö£©
+	//é‡æ–°è®¡ç®—æœ€ç»ˆè¾“å‡ºï¼ˆåŸºäºŽä¿®æ­£åŽçš„ç§¯åˆ†ï¼‰
 	PID_PWM_Balance=yaw_gyro_balance_Kp*PID_Yaw_Gyro_err+yaw_gyro_balance_Ki*PID_Yaw_Gyro_Integral
 		+yaw_gyro_balance_Kd*(PID_Yaw_Gyro_err-PID_Yaw_Gyro_err_last);
-	//PWMÏÞ·ù£¨ÄÚ»·×îÖÕÊä³öÊÇµç»úPWM£¬Ðè×ªÕûÐÍ£©
+	//PWMé™å¹…ï¼ˆå†…çŽ¯æœ€ç»ˆè¾“å‡ºæ˜¯ç”µæœºPWMï¼Œéœ€è½¬æ•´åž‹ï¼‰
 	PID_PWM_Balance = fminf(fmaxf(PID_PWM_Balance, (float)TARGET_PWM_MIN), (float)TARGET_PWM_MAX);
-	// ¼ÇÂ¼µ±Ç°½ÇËÙ¶È£¬ÓÃÓÚÏÂÒ»Ö¡DÏî¼ÆËã
+	// è®°å½•å½“å‰è§’é€Ÿåº¦ï¼Œç”¨äºŽä¸‹ä¸€å¸§Dé¡¹è®¡ç®—
 	PID_Yaw_Gyro_err_last = PID_Yaw_Gyro_err;
 
-	//×ªÕûÐÍ·µ»Ø£¨µç»úÇý¶¯ÐèÕûÐÍPWM£©
+	//è½¬æ•´åž‹è¿”å›žï¼ˆç”µæœºé©±åŠ¨éœ€æ•´åž‹PWMï¼‰
 	return (int16_t)PID_PWM_Balance;
 	
 }
@@ -430,23 +430,23 @@ void Fly_task(void)
         Motor_Control();
         return;
     }
-	//¸©ÑöÍâ»·Êä³ö
+	//ä¿¯ä»°å¤–çŽ¯è¾“å‡º
 	 Pitch_Angle_out=Pitch_Angle_Balance(Pitch,gy);   
 	 Roll_Angle_out=Roll_Angle_Balance(Roll,gx);     
 	 Yaw_Angle_out=Yaw_Angle_Balance(Yaw,gz);       
-	//¸©ÑöÄÚ»·Êä³ö(Ö±½Óµþ¼Ó×÷ÓÃµ½PWM)
+	//ä¿¯ä»°å†…çŽ¯è¾“å‡º(ç›´æŽ¥å åŠ ä½œç”¨åˆ°PWM)
 	 Pitch_Balance_out=Pitch_Gyro_Balance(Pitch_Angle_out,gy);
 	 Roll_Balance_out=Roll_Gyro_Balance(Roll_Angle_out,gx);
 	 Yaw_Balance_out=Yaw_Gyro_Balance(Yaw_Angle_out,gz);
 	
-	/*×éºÏËã·¨*/
-	if(Oil_Set>PID_Oil_Min)  //ÓÍÃÅ´óÓÚ10¿ªÊ¼PIDµ÷ÊÔ
+	/*ç»„åˆç®—æ³•*/
+	if(Oil_Set>PID_Oil_Min)  //æ²¹é—¨å¤§äºŽ10å¼€å§‹PIDè°ƒè¯•
 	{
-		PWM_OUT1= Oil_Set+Pitch_Balance_out-Roll_Balance_out+Yaw_Balance_out;
-		PWM_OUT2= Oil_Set+Pitch_Balance_out+Roll_Balance_out-Yaw_Balance_out;
-		PWM_OUT3= Oil_Set-Pitch_Balance_out-Roll_Balance_out-Yaw_Balance_out;
-		PWM_OUT4= Oil_Set-Pitch_Balance_out+Roll_Balance_out+Yaw_Balance_out;
-		/*PWMÏÞ·ù*/
+		PWM_OUT1= Oil_Set+Pitch_Balance_out-Roll_Balance_out-Yaw_Balance_out;
+		PWM_OUT2= Oil_Set+Pitch_Balance_out+Roll_Balance_out+Yaw_Balance_out;
+		PWM_OUT3= Oil_Set-Pitch_Balance_out-Roll_Balance_out+Yaw_Balance_out;
+		PWM_OUT4= Oil_Set-Pitch_Balance_out+Roll_Balance_out-Yaw_Balance_out;
+		/*PWMé™å¹…*/
 		PWM_OUT1=Limit_PWM(PWM_OUT1);
 		PWM_OUT2=Limit_PWM(PWM_OUT2);
 	  PWM_OUT3=Limit_PWM(PWM_OUT3);
@@ -465,118 +465,118 @@ void Fly_task(void)
 
 void LED_Detect(void)
 {
-	//Èç¹ûÎÞÏßÍ¨ÐÅÊ§°Ü£¬LEDÎªÃ¿500msÉÁÒ»´Î
+	//å¦‚æžœæ— çº¿é€šä¿¡å¤±è´¥ï¼ŒLEDä¸ºæ¯500msé—ªä¸€æ¬¡
 	if(connect_protect==1 && Battery_Protect==0) LED_Time(500);
-	//Èç¹ûÎÞÏßÍ¨ÐÅ³É¹¦£¬LED³¤ÁÁ
+	//å¦‚æžœæ— çº¿é€šä¿¡æˆåŠŸï¼ŒLEDé•¿äº®
 	else if(connect_protect==0 && Battery_Protect==0)	LED_Light(1);	
-	//Èç¹ûµç³ØµçÁ¿²»×ã£¬LEDÃ¿50msÉÁÒ»´Î
+	//å¦‚æžœç”µæ± ç”µé‡ä¸è¶³ï¼ŒLEDæ¯50msé—ªä¸€æ¬¡
 	else if(Battery_Protect)	LED_Time(50);	
   
 }
 
 
-/*---Êý¾Ý´¦Àí---*/
+/*---æ•°æ®å¤„ç†---*/
 void Data_Proc(void)
 {
 	BlueSerial_Proc();	/* online PID tuning via Bluetooth, 20 ms */
- /*---½ÓÊÕÊý¾Ý´¦Àí---*/
-	//¹æ¶¨£ºgetpitchµÄÖµ·¶Î§Îª0->100£¬ÓÉÉÏµ½ÏÂ£¬¶¶¶¯ÏÞÖÆ·¶Î§Îª40-60
-	//¹æ¶¨£ºgetrollµÄÖµ·¶Î§Îª0->100£¬ÓÉÓÒµ½×ó£¬¶¶¶¯ÏÞÖÆ·¶Î§Îª40-60
-	//¸Ã²¿·Ö´¦ÀíµÄÄ¿µÄÊÇ½«ÆäÓàÊýÖµÏßÐÔ×ª»¯Îª½Ç¶È¡£½Ç¶È×î´óÎª30¶È¡£
-	//getpitch£º      ÓÉ40->0    ½Ç¶Ègetpitch_SETÓÉ0ÖÁ-10
-	//                ÓÉ60->100  ½Ç¶Ègetpitch_SETÓÉ0ÖÁ10
+ /*---æŽ¥æ”¶æ•°æ®å¤„ç†---*/
+	//è§„å®šï¼šgetpitchçš„å€¼èŒƒå›´ä¸º0->100ï¼Œç”±ä¸Šåˆ°ä¸‹ï¼ŒæŠ–åŠ¨é™åˆ¶èŒƒå›´ä¸º40-60
+	//è§„å®šï¼šgetrollçš„å€¼èŒƒå›´ä¸º0->100ï¼Œç”±å³åˆ°å·¦ï¼ŒæŠ–åŠ¨é™åˆ¶èŒƒå›´ä¸º40-60
+	//è¯¥éƒ¨åˆ†å¤„ç†çš„ç›®çš„æ˜¯å°†å…¶ä½™æ•°å€¼çº¿æ€§è½¬åŒ–ä¸ºè§’åº¦ã€‚è§’åº¦æœ€å¤§ä¸º30åº¦ã€‚
+	//getpitchï¼š      ç”±40->0    è§’åº¦getpitch_SETç”±0è‡³-10
+	//                ç”±60->100  è§’åº¦getpitch_SETç”±0è‡³10
 	//
-	//getroll£º       ÓÉ60->100  ½Ç¶Ègetroll_SETÓÉ0ÖÁ-10
-	//                ÓÉ40->0    ½Ç¶Ègetroll_SETÓÉ0ÖÁ10
+	//getrollï¼š       ç”±60->100  è§’åº¦getroll_SETç”±0è‡³-10
+	//                ç”±40->0    è§’åº¦getroll_SETç”±0è‡³10
 	if(getpitch>40 && getpitch<60) getpitch_SET=0;
 	if(getpitch>=0 && getpitch<=40)  getpitch_SET=0.25*getpitch-10;
 	if(getpitch>=60 && getpitch<=100)getpitch_SET=0.25*getpitch-15;
 	if(getroll>40 && getroll<60) getroll_SET=0;
 	if(getroll>=0 && getroll<=40)  getroll_SET=-0.25*getroll+10;
 	if(getroll>=60 && getroll<=100)getroll_SET=-0.25*getroll+15;
-	//º½Ïò
+	//èˆªå‘
 	getyaw_SET=getyaw-100;
 
-	/*---ÓÍÃÅÏÞÖÆ---*/
+	/*---æ²¹é—¨é™åˆ¶---*/
 	Oil_Set=Oil_Get*36;
 
-	/*---»úÐµÁãµãÒÔ¼°PIDµ÷²Î---*/
+	/*---æœºæ¢°é›¶ç‚¹ä»¥åŠPIDè°ƒå‚---*/
 	if(index_type!=0)
 	{
 		switch(index_type)
 		{
-			case 1://¸©Ñö»úÐµÁãµã
+			case 1://ä¿¯ä»°æœºæ¢°é›¶ç‚¹
 				fly_pitch_zero=(PID_Data_Send[0]+(PID_Data_Send[1])*0.01)-100.0;	
 				break;	
-			case 2://·­¹ö»úÐµÁãµã
+			case 2://ç¿»æ»šæœºæ¢°é›¶ç‚¹
 				fly_roll_zero=(PID_Data_Send[0]+(PID_Data_Send[1])*0.01)-100.0;	
 				break;	
-			case 3://º½Ïò»úÐµÁãµãÖØÖÃ
+			case 3://èˆªå‘æœºæ¢°é›¶ç‚¹é‡ç½®
 				fly_yaw_zero_bit=(PID_Data_Send[0]+(PID_Data_Send[1])*0.01)-100.0;		
 			  if(fly_yaw_zero_bit!=fly_yaw_zero_bit_old)
 				{
-					/*ÖØÖÃº½ÏòÁãµã*/
+					/*é‡ç½®èˆªå‘é›¶ç‚¹*/
 					fly_yaw_zero=Yaw;
 					fly_yaw_zero_bit_old=fly_yaw_zero_bit;
 				}
 				break;	
-			case 4://Íâ»·¸©ÑöµÄP
+			case 4://å¤–çŽ¯ä¿¯ä»°çš„P
 		    PID_Data[0][0]=(PID_Data_Send[0]*0.1+(PID_Data_Send[1])*0.001);
 	      break;
-			case 5://Íâ»·¸©ÑöµÄI
+			case 5://å¤–çŽ¯ä¿¯ä»°çš„I
 		    PID_Data[0][1]=(PID_Data_Send[0]*0.1+(PID_Data_Send[1])*0.001);
 	      break;
-			case 6://Íâ»·¸©ÑöµÄD
+			case 6://å¤–çŽ¯ä¿¯ä»°çš„D
 		    PID_Data[0][2]=(PID_Data_Send[0]*0.1+(PID_Data_Send[1])*0.001);
 	      break;
-			case 7://Íâ»··­¹öµÄP
+			case 7://å¤–çŽ¯ç¿»æ»šçš„P
 		    PID_Data[1][0]=(PID_Data_Send[0]*0.1+(PID_Data_Send[1])*0.001);
 	      break;
-			case 8://Íâ»··­¹öµÄI
+			case 8://å¤–çŽ¯ç¿»æ»šçš„I
 		    PID_Data[1][1]=(PID_Data_Send[0]*0.1+(PID_Data_Send[1])*0.001);
 	      break;
-			case 9://Íâ»··­¹öµÄD
+			case 9://å¤–çŽ¯ç¿»æ»šçš„D
 		    PID_Data[1][2]=(PID_Data_Send[0]*0.1+(PID_Data_Send[1])*0.001);
 	      break;
-			case 10://Íâ»·º½ÏòµÄP
+			case 10://å¤–çŽ¯èˆªå‘çš„P
 		    PID_Data[2][0]=(PID_Data_Send[0]*0.1+(PID_Data_Send[1])*0.001);
 	      break;
-			case 11://Íâ»·º½ÏòµÄI
+			case 11://å¤–çŽ¯èˆªå‘çš„I
 		    PID_Data[2][1]=(PID_Data_Send[0]*0.1+(PID_Data_Send[1])*0.001);
 	      break;
-			case 12://Íâ»·º½ÏòµÄD
+			case 12://å¤–çŽ¯èˆªå‘çš„D
 		    PID_Data[2][2]=(PID_Data_Send[0]*0.1+(PID_Data_Send[1])*0.001);
 	      break;
-			//ÄÚ»·
-			case 13://ÄÚ»·¸©ÑöµÄP
+			//å†…çŽ¯
+			case 13://å†…çŽ¯ä¿¯ä»°çš„P
 				PID_Data[3][0]=(PID_Data_Send[0]*0.1+(PID_Data_Send[1])*0.001);	
 				break;	
-			case 14://ÄÚ»·¸©ÑöµÄI
+			case 14://å†…çŽ¯ä¿¯ä»°çš„I
 				PID_Data[3][1]=(PID_Data_Send[0]*0.1+(PID_Data_Send[1])*0.001);	
 				break;	
-			case 15://ÄÚ»·¸©ÑöµÄD
+			case 15://å†…çŽ¯ä¿¯ä»°çš„D
 				PID_Data[3][2]=(PID_Data_Send[0]*0.1+(PID_Data_Send[1])*0.001);		
 				break;	
-			case 16://Íâ»··­¹öµÄP
+			case 16://å¤–çŽ¯ç¿»æ»šçš„P
 		    PID_Data[4][0]=(PID_Data_Send[0]*0.1+(PID_Data_Send[1])*0.001);
 	      break;
-			case 17://Íâ»··­¹öµÄI
+			case 17://å¤–çŽ¯ç¿»æ»šçš„I
 		    PID_Data[4][1]=(PID_Data_Send[0]*0.1+(PID_Data_Send[1])*0.001);
 	      break;
-			case 18://Íâ»··­¹öµÄD
+			case 18://å¤–çŽ¯ç¿»æ»šçš„D
 		    PID_Data[4][2]=(PID_Data_Send[0]*0.1+(PID_Data_Send[1])*0.001);
 	      break;
-			case 19://Íâ»·º½ÏòµÄP
+			case 19://å¤–çŽ¯èˆªå‘çš„P
 		    PID_Data[5][0]=(PID_Data_Send[0]*0.1+(PID_Data_Send[1])*0.001);
 	      break;
-			case 20://Íâ»·º½ÏòµÄI
+			case 20://å¤–çŽ¯èˆªå‘çš„I
 		    PID_Data[5][1]=(PID_Data_Send[0]*0.1+(PID_Data_Send[1])*0.001);
 	      break;
-			case 21://Íâ»·º½ÏòµÄD
+			case 21://å¤–çŽ¯èˆªå‘çš„D
 		    PID_Data[5][2]=(PID_Data_Send[0]*0.1+(PID_Data_Send[1])*0.001);
 	      break;
 		}
-			//ÉèÖÃµ±Ç°µÄPID²ÎÊý
+			//è®¾ç½®å½“å‰çš„PIDå‚æ•°
 		pitch_angle_balance_Kp=PID_Data[0][0];
 		pitch_angle_balance_Ki=PID_Data[0][1];
 		pitch_angle_balance_Kd=PID_Data[0][2];
@@ -596,7 +596,7 @@ void Data_Proc(void)
 		yaw_gyro_balance_Ki   =PID_Data[5][1];
 		yaw_gyro_balance_Kd   =PID_Data[5][2];
 	}
-	/*---µçÁ¿¼ì²âÊý¾Ý´¦Àí---*/
+	/*---ç”µé‡æ£€æµ‹æ•°æ®å¤„ç†---*/
 	if(Battery_average<=3.50) 	Battery_Protect=1;
 	else	Battery_Protect=0;
 	
@@ -607,7 +607,7 @@ void Attitude_Data_Proc(void)
 #ifdef ATTITUDE_SOURCE_MEKF
     AttitudeOutput output;
     bool has_output = AttitudeSource_Read(&output);
-    /* ±¾´Î¶ÁÈ¡¿ÉÄÜ¸ÕËø´æ¹ÊÕÏ£¬±ØÐëÔÚÍ¬Ò»´ÎÇ°Ì¨·þÎñÖÐ³·ÏúÓÐÐ§Î»¡£ */
+    /* æœ¬æ¬¡è¯»å–å¯èƒ½åˆšé”å­˜æ•…éšœï¼Œå¿…é¡»åœ¨åŒä¸€æ¬¡å‰å°æœåŠ¡ä¸­æ’¤é”€æœ‰æ•ˆä½ã€‚ */
     if (AttitudeSource_IsFaulted())
     {
         uint32_t primask = __get_PRIMASK();
@@ -628,7 +628,7 @@ void Attitude_Data_Proc(void)
         __set_PRIMASK(primask);
     }
 #else
-	//»ñµÃ×ËÌ¬½Ç¶ÈÓë½ÇËÙ¶È
+	//èŽ·å¾—å§¿æ€è§’åº¦ä¸Žè§’é€Ÿåº¦
 	 float p, r, y, xrate, yrate, zrate;
      if (MPU6050_DMP_Get_Sample(&p, &r, &y, &xrate, &yrate, &zrate) == 0 &&
          isfinite(p) && isfinite(r) && isfinite(y) &&
@@ -645,14 +645,14 @@ void Attitude_Data_Proc(void)
 #endif
 }
 
-/*---Êý¾ÝÏÔÊ¾---*/
+/*---æ•°æ®æ˜¾ç¤º---*/
 static void Data_DisplayFixed(int16_t x, int16_t y, uint8_t width,
                               const char *label, float value, uint8_t decimals)
 {
     char text[24];
     if (!FixedFormat_Label(text, sizeof text, label, value, decimals))
     {
-        /* ·ÇÓÐÏÞÖµ»ò³¬·¶Î§Ê±Çå³ý¸Ã×Ö¶Î£¬±ÜÃâÆÁÄ»¼ÌÐøÏÔÊ¾¾ÉÊýÖµ¡£ */
+        /* éžæœ‰é™å€¼æˆ–è¶…èŒƒå›´æ—¶æ¸…é™¤è¯¥å­—æ®µï¼Œé¿å…å±å¹•ç»§ç»­æ˜¾ç¤ºæ—§æ•°å€¼ã€‚ */
         OLED_ClearArea(x, y, width, 8);
         text[0] = 'E'; text[1] = 'R'; text[2] = 'R'; text[3] = '\0';
     }
@@ -680,14 +680,14 @@ void Data_Display(void)
     }
     OLED_ShowString(0, 40, "IMU:OK", OLED_6X8);
 #endif
-    /* ÕûÊý×Ö¶Î¼ÌÐø¸´ÓÃÔ­ OLED_Printf£¬±ÜÃâÊ¹ÓÃ¸¡µã¸ñÊ½»¯¡£ */
+    /* æ•´æ•°å­—æ®µç»§ç»­å¤ç”¨åŽŸ OLED_Printfï¼Œé¿å…ä½¿ç”¨æµ®ç‚¹æ ¼å¼åŒ–ã€‚ */
     OLED_Printf(0,0,OLED_6X8,"o:%04d",Oil_Set);
     OLED_Printf(0,8,OLED_6X8,"1:%04d",PWM_OUT1);
     OLED_Printf(0,16,OLED_6X8,"2:%04d",PWM_OUT2);
     OLED_Printf(0,24,OLED_6X8,"3:%04d",PWM_OUT3);
     OLED_Printf(0,32,OLED_6X8,"4:%04d",PWM_OUT4);
 
-    /* ¶¨µãÐ¡Êý¸ñÊ½»¯£»×Ö¶ÎÃû³Æ¡¢ÆÁÄ»Î»ÖÃ¡¢µ¥Î»ºÍÐ¡ÊýÎ»±£³Ö²»±ä¡£ */
+    /* å®šç‚¹å°æ•°æ ¼å¼åŒ–ï¼›å­—æ®µåç§°ã€å±å¹•ä½ç½®ã€å•ä½å’Œå°æ•°ä½ä¿æŒä¸å˜ã€‚ */
     Data_DisplayFixed(0,55,46,"B:",Battery_average,2);
     Data_DisplayFixed(50,0,78,"pitch:",fly_pitch_zero,2);
     Data_DisplayFixed(50,8,78,"roll:",fly_roll_zero,2);
@@ -701,7 +701,7 @@ void Data_Display(void)
     OLED_UpdateAsync();
 }
 
-/*---Êý¾Ý½ÓÊÕ---*/
+/*---æ•°æ®æŽ¥æ”¶---*/
 void Data_Receive(void)
 {
 	int16_t lh;
@@ -800,7 +800,7 @@ void Data_Receive(void)
 	}
 }
 
-/*Êý¾Ý·¢ËÍ*/
+/*æ•°æ®å‘é€*/
 void Data_Send(void)
 {
 	Send(Send_Data);
@@ -808,13 +808,13 @@ void Data_Send(void)
 
 void Connect_Portect_Test(void)
 {
-	/*¸³Öµ*/
+	/*èµ‹å€¼*/
 	if(connect_bit==0)
 	{
-		connect_oldvalue=connect_value; //°Ñµ±Ç°µÄÖµ´¢´æÆðÀ´ÓÃÓÚÏÂ´ÎµÄ±È½Ï¡£			
+		connect_oldvalue=connect_value; //æŠŠå½“å‰çš„å€¼å‚¨å­˜èµ·æ¥ç”¨äºŽä¸‹æ¬¡çš„æ¯”è¾ƒã€‚			
 		connect_bit=1;
 	}
-	/*±È½Ï*/
+	/*æ¯”è¾ƒ*/
 	else
 	{
 		if(connect_oldvalue==connect_value)	connect_protect=1;
