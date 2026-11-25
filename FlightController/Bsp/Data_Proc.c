@@ -77,6 +77,24 @@ uint8_t Attitude_IsFresh(void)
 #define BALANCE_REMOTE_YAW_RATE_DPS      45.0f
 #define BALANCE_REMOTE_YAW_MAX_DT_MS     200U
 
+#define TRIM_STEP_DEG                    0.5f
+#define TRIM_LIMIT_DEG                   10.0f
+#define TELEMETRY_TRIM_TAG               0xB5U
+
+static float Trim_Clamp(float value)
+{
+	if(value > TRIM_LIMIT_DEG) return TRIM_LIMIT_DEG;
+	if(value < -TRIM_LIMIT_DEG) return -TRIM_LIMIT_DEG;
+	return value;
+}
+
+static int8_t Trim_EncodeDeciDeg(float value)
+{
+	if(value > 12.7f) return 127;
+	if(value < -12.8f) return -128;
+	return (int8_t)(value >= 0.0f ? (value * 10.0f + 0.5f) : (value * 10.0f - 0.5f));
+}
+
 #define BALANCE_AXIS_TO_0_100(axis) ((uint16_t)(((int16_t)(axis) + 100) / 2))
 
 static int16_t Balance_Clamp_Axis(int16_t axis)
@@ -775,6 +793,16 @@ void Data_Receive(void)
 				getyaw=Balance_Yaw_Target(getyaw,lh,elapsed_ms);
 			}
 
+			/* 航模飞行方向机械零点微调：上1前倾 / 下3后仰 / 左2左倾 / 右4右倾，全程允许 */
+			switch(key)
+			{
+				case 1: fly_pitch_zero=Trim_Clamp(fly_pitch_zero-TRIM_STEP_DEG); break;
+				case 3: fly_pitch_zero=Trim_Clamp(fly_pitch_zero+TRIM_STEP_DEG); break;
+				case 2: fly_roll_zero=Trim_Clamp(fly_roll_zero+TRIM_STEP_DEG); break;
+				case 4: fly_roll_zero=Trim_Clamp(fly_roll_zero-TRIM_STEP_DEG); break;
+				default: break;
+			}
+
 			/* This remote does not provide flight-controller PID setting data. */
 			index_type=0;
 			PID_Data_Send[0]=0;
@@ -794,6 +822,12 @@ void Data_Receive(void)
 				*(float*)&Send_Data[8]=Roll;				/* little-endian float: roll angle */
 				*(float*)&Send_Data[12]=Battery_average;	/* little-endian float: battery volts */
 				for(i=16;i<32;i++) Send_Data[i]=0;			/* reserved bytes */
+				if(isfinite(fly_pitch_zero) && isfinite(fly_roll_zero))
+				{
+					Send_Data[16]=TELEMETRY_TRIM_TAG; /* 0xB5: [17..18] carry 0.1 deg trim */
+					Send_Data[17]=(uint8_t)Trim_EncodeDeciDeg(fly_pitch_zero);
+					Send_Data[18]=(uint8_t)Trim_EncodeDeciDeg(fly_roll_zero);
+				}
 				Send(Send_Data);								/* no retry: next frame re-sends */
 			}
 		}

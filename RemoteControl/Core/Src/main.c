@@ -178,7 +178,11 @@ int main(void)
     }
     else if (NRF24L01_Receive() == 1 && NRF24L01_RxPacket[0] == 0x02)
     {
-      TelemetryState_Update(&LockState, NRF24L01_RxPacket[3], HAL_GetTick());
+      uint32_t now_ms = HAL_GetTick();
+      TelemetryState_Update(&LockState, NRF24L01_RxPacket[3], now_ms);
+      TelemetryState_UpdateTrim(&LockState, NRF24L01_RxPacket[16],
+                                (int8_t)NRF24L01_RxPacket[17],
+                                (int8_t)NRF24L01_RxPacket[18], now_ms);
       if (Mode == 1)
       {
         int8_t LeftPWM = (int8_t)NRF24L01_RxPacket[1];
@@ -196,10 +200,15 @@ int main(void)
     OLED_Printf(64, 0, OLED_8X16, "Sig:%02d", Sig);
     if (Mode == 0)
     {
+      char pitch_trim[9], roll_trim[9];
+      TelemetryState_FormatZero(&LockState, 'P', pitch_trim, sizeof(pitch_trim));
+      TelemetryState_FormatZero(&LockState, 'R', roll_trim, sizeof(roll_trim));
       OLED_Printf(0, 16, OLED_8X16, "LH:%+04d", LH);
       OLED_Printf(0, 32, OLED_8X16, "LV:%+04d", LV);
       OLED_Printf(64, 16, OLED_8X16, "RH:%+04d", RH);
       OLED_Printf(64, 32, OLED_8X16, "RV:%+04d", RV);
+      OLED_ShowString(0, 48, pitch_trim, OLED_8X16);
+      OLED_ShowString(64, 48, roll_trim, OLED_8X16);
     }
 
     OLED_Update();                  /* 整屏刷新，400kHz 下约 23ms */

@@ -246,6 +246,34 @@ int main(void) {
     Receive_Data[0]=1; Data_Receive(); assert(sent_count==1 && sent_packet[0]==2 && sent_packet[3]==0xA1);
     Receive_Data[0]=0; Receive_Data[6]=0xA5; Lock=0; Data_Receive();
     assert(sent_count==2 && sent_packet[3]==0xA2); /* new joystick page */
+    assert(sent_packet[16]==0xB5 && (int8_t)sent_packet[17]==0 && (int8_t)sent_packet[18]==0);
+    /* KEY1/3/2/4 flight-direction trim works locked & unlocked without blocking yaw stick. */
+    Lock=1; Receive_Data[1]=0; Receive_Data[2]=0; Receive_Data[5]=1; Data_Receive();
+    assert(fabsf(fly_pitch_zero + 0.5f) < 1e-5f && sent_packet[16]==0xB5 && (int8_t)sent_packet[17]==-5);
+    Receive_Data[5]=3; Data_Receive();
+    assert(fabsf(fly_pitch_zero) < 1e-5f && (int8_t)sent_packet[17]==0);
+    Receive_Data[5]=2; Data_Receive();
+    assert(fabsf(fly_roll_zero - 0.5f) < 1e-5f && (int8_t)sent_packet[18]==5);
+    Receive_Data[5]=4; Data_Receive();
+    assert(fabsf(fly_roll_zero) < 1e-5f && (int8_t)sent_packet[18]==0);
+    Lock=0; getyaw=100.0f; connect_time=100; Receive_Data[1]=50; Receive_Data[2]=(uint8_t)(int8_t)-50;
+    Receive_Data[5]=1; Data_Receive();
+    assert(fabsf(fly_pitch_zero + 0.5f) < 1e-5f && getyaw > 100.0f);
+    for (int k = 0; k < 25; ++k) { Receive_Data[5]=1; Data_Receive(); }
+    assert(fabsf(fly_pitch_zero + 10.0f) < 1e-5f && (int8_t)sent_packet[17]==-100);
+    for (int k = 0; k < 45; ++k) { Receive_Data[5]=3; Data_Receive(); }
+    assert(fabsf(fly_pitch_zero - 10.0f) < 1e-5f && (int8_t)sent_packet[17]==100);
+    for (int k = 0; k < 25; ++k) { Receive_Data[5]=2; Data_Receive(); }
+    assert(fabsf(fly_roll_zero - 10.0f) < 1e-5f && (int8_t)sent_packet[18]==100);
+    for (int k = 0; k < 45; ++k) { Receive_Data[5]=4; Data_Receive(); }
+    assert(fabsf(fly_roll_zero + 10.0f) < 1e-5f && (int8_t)sent_packet[18]==-100);
+    fly_pitch_zero=15.0f; fly_roll_zero=-15.0f; Receive_Data[5]=0; Data_Receive();
+    assert(sent_packet[16]==0xB5 && (int8_t)sent_packet[17]==127 && (int8_t)sent_packet[18]==-128);
+    fly_pitch_zero=NAN; fly_roll_zero=0.0f; Data_Receive();
+    assert(sent_packet[16]==0);
+    fly_pitch_zero=0.0f; fly_roll_zero=NAN; Data_Receive();
+    assert(sent_packet[16]==0);
+    fly_pitch_zero=0.0f; fly_roll_zero=0.0f; Receive_Data[1]=0; Receive_Data[2]=0; Receive_Data[5]=0;
     Receive_Data[6]=0;
     Lock=0; connect_protect=0; Oil_Get=30; Oil_Set=900;
     PWM_OUT1=PWM_OUT2=PWM_OUT3=PWM_OUT4=300;
