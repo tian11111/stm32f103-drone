@@ -274,6 +274,17 @@ int main(void) {
     fly_pitch_zero=0.0f; fly_roll_zero=NAN; Data_Receive();
     assert(sent_packet[16]==0);
     fly_pitch_zero=0.0f; fly_roll_zero=0.0f; Receive_Data[1]=0; Receive_Data[2]=0; Receive_Data[5]=0;
+    /* Right stick polarity & +/-15 deg full scale without redundant FC deadband:
+       RV>0 (forward) -> negative Pitch; RH>0 (right) -> negative Roll. */
+    Receive_Data[3]=0; Receive_Data[4]=0; Data_Receive(); Data_Proc();
+    assert(fabsf(getpitch_SET) < 1e-5f && fabsf(getroll_SET) < 1e-5f);
+    Receive_Data[3]=100; Receive_Data[4]=100; Data_Receive(); Data_Proc();
+    assert(fabsf(getpitch_SET + 15.0f) < 1e-4f && fabsf(getroll_SET + 15.0f) < 1e-4f);
+    Receive_Data[3]=(uint8_t)(int8_t)-100; Receive_Data[4]=(uint8_t)(int8_t)-100; Data_Receive(); Data_Proc();
+    assert(fabsf(getpitch_SET - 15.0f) < 1e-4f && fabsf(getroll_SET - 15.0f) < 1e-4f);
+    Receive_Data[3]=5; Receive_Data[4]=5; Data_Receive(); Data_Proc();
+    assert(fabsf(getpitch_SET + 0.75f) < 1e-4f && fabsf(getroll_SET + 0.75f) < 1e-4f);
+    Receive_Data[3]=0; Receive_Data[4]=0; Data_Receive(); Data_Proc();
     Receive_Data[6]=0;
     Lock=0; connect_protect=0; Oil_Get=30; Oil_Set=900;
     PWM_OUT1=PWM_OUT2=PWM_OUT3=PWM_OUT4=300;

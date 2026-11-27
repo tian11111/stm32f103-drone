@@ -68,11 +68,12 @@ uint8_t Attitude_IsFresh(void)
 /* 1 reverses the corresponding balance-remote direction. */
 #define BALANCE_REMOTE_REVERSE_THROTTLE 1
 #define BALANCE_REMOTE_REVERSE_PITCH    1
-#define BALANCE_REMOTE_REVERSE_ROLL     1
+#define BALANCE_REMOTE_REVERSE_ROLL     0
 #define BALANCE_REMOTE_REVERSE_YAW      0
 
-#define BALANCE_REMOTE_TILT_DEADBAND     8
-#define BALANCE_REMOTE_MAX_TILT_DEG      8.0f
+#define BALANCE_REMOTE_THROTTLE_DEADBAND 8
+#define BALANCE_REMOTE_TILT_DEADBAND     0
+#define BALANCE_REMOTE_MAX_TILT_DEG      15.0f
 #define BALANCE_REMOTE_YAW_DEADBAND      10
 #define BALANCE_REMOTE_YAW_RATE_DPS      45.0f
 #define BALANCE_REMOTE_YAW_MAX_DT_MS     200U
@@ -104,14 +105,14 @@ static int16_t Balance_Clamp_Axis(int16_t axis)
 	return axis;
 }
 
-/* Encode a small stick deadband and a gentler limit for the existing angle conversion. */
+/* Map signed stick axis into [0,40] / [60,100] with 50 centered; remote already applies ADC deadband. */
 static float Balance_Tilt_To_Input(int16_t axis)
 {
-	const float span=4.0f*BALANCE_REMOTE_MAX_TILT_DEG;
+	const float denom=(float)(100-BALANCE_REMOTE_TILT_DEADBAND);
 	if(axis > BALANCE_REMOTE_TILT_DEADBAND)
-		return 60.0f + (axis-BALANCE_REMOTE_TILT_DEADBAND)*span/(100-BALANCE_REMOTE_TILT_DEADBAND);
+		return 60.0f + (float)(axis-BALANCE_REMOTE_TILT_DEADBAND)*40.0f/denom;
 	if(axis < -BALANCE_REMOTE_TILT_DEADBAND)
-		return 40.0f + (axis+BALANCE_REMOTE_TILT_DEADBAND)*span/(100-BALANCE_REMOTE_TILT_DEADBAND);
+		return 40.0f + (float)(axis+BALANCE_REMOTE_TILT_DEADBAND)*40.0f/denom;
 	return 50.0f;
 }
 
@@ -497,21 +498,17 @@ void LED_Detect(void)
 void Data_Proc(void)
 {
 	BlueSerial_Proc();	/* online PID tuning via Bluetooth, 20 ms */
- /*---接收数据处理---*/
-	//规定：getpitch的值范围为0->100，由上到下，抖动限制范围为40-60
-	//规定：getroll的值范围为0->100，由右到左，抖动限制范围为40-60
-	//该部分处理的目的是将其余数值线性转化为角度。角度最大为30度。
-	//getpitch：      由40->0    角度getpitch_SET由0至-10
-	//                由60->100  角度getpitch_SET由0至10
-	//
-	//getroll：       由60->100  角度getroll_SET由0至-10
-	//                由40->0    角度getroll_SET由0至10
-	if(getpitch>40 && getpitch<60) getpitch_SET=0;
-	if(getpitch>=0 && getpitch<=40)  getpitch_SET=0.25*getpitch-10;
-	if(getpitch>=60 && getpitch<=100)getpitch_SET=0.25*getpitch-15;
-	if(getroll>40 && getroll<60) getroll_SET=0;
-	if(getroll>=0 && getroll<=40)  getroll_SET=-0.25*getroll+10;
-	if(getroll>=60 && getroll<=100)getroll_SET=-0.25*getroll+15;
+	/*---接收数据处理---*/
+	//规定：getpitch / getroll 范围为 0->100，40~60 为中立区，满行程对应 ±BALANCE_REMOTE_MAX_TILT_DEG
+	//getpitch：40->0  对应 0 至 -MAX（前倾），60->100 对应 0 至 +MAX（后仰）
+	//getroll： 40->0  对应 0 至 +MAX（左倾），60->100 对应 0 至 -MAX（右倾）
+	const float tilt_scale = BALANCE_REMOTE_MAX_TILT_DEG / 40.0f;
+	if(getpitch>40.0f && getpitch<60.0f) getpitch_SET=0.0f;
+	else if(getpitch>=0.0f && getpitch<=40.0f)  getpitch_SET=(getpitch-40.0f)*tilt_scale;
+	else if(getpitch>=60.0f && getpitch<=100.0f)getpitch_SET=(getpitch-60.0f)*tilt_scale;
+	if(getroll>40.0f && getroll<60.0f) getroll_SET=0.0f;
+	else if(getroll>=0.0f && getroll<=40.0f)  getroll_SET=(40.0f-getroll)*tilt_scale;
+	else if(getroll>=60.0f && getroll<=100.0f)getroll_SET=(60.0f-getroll)*tilt_scale;
 	//航向
 	getyaw_SET=getyaw-100;
 
@@ -742,9 +739,9 @@ void Data_Receive(void)
 			elapsed_ms=connect_time;
 			/* Throttle: this remote encodes FORWARD push as NEGATIVE lv; push forward = more throttle, centered/pulled back = 0. */
 #if BALANCE_REMOTE_REVERSE_THROTTLE
-			if(lv < -BALANCE_REMOTE_TILT_DEADBAND)
+			if(lv < -BALANCE_REMOTE_THROTTLE_DEADBAND)
 			{
-				Oil_Get=(uint8_t)((-lv-BALANCE_REMOTE_TILT_DEADBAND)*80/(100-BALANCE_REMOTE_TILT_DEADBAND));
+				Oil_Get=(uint8_t)((-lv-BALANCE_REMOTE_THROTTLE_DEADBAND)*80/(100-BALANCE_REMOTE_THROTTLE_DEADBAND));
 			}
 			else
 			{
